@@ -1,0 +1,1329 @@
+/*
+ * AD&D Dashboard design system
+ *
+ * This file is the sole source of truth for typography, theme colors,
+ * surfaces, interactive states, tabs, and semantic status colors.
+ * Component rules in globals.css retain geometry and feature-specific layout.
+ */
+
+:root {
+  color-scheme: light;
+  --font-ui: "Courier Prime", "Courier New", Courier, monospace;
+
+  --text-xl: 24px;
+  --text-lg: 18px;
+  --text-md: 15px;
+  --text-sm: 14px;
+  --text-xs: 11px;
+
+  /* Parchment structure. Ink tokens meet 4.5:1 on every canonical surface. */
+  --bg-page: #e7ddc8;
+  --bg-surface: #f3ead8;
+  --bg-surface-raised: #fbf4e3;
+  --bg-surface-inset: #e7dcc5;
+  --text-primary: #241f18;
+  --text-secondary: #51483b;
+  --text-muted: #625847;
+  --border-subtle: #a99b82;
+  --control-border: #7c6d55;
+  --shadow-color: rgb(36 31 24 / 18%);
+
+  /* Informational/active system color. Player identity never uses this token. */
+  --info: #315d79;
+  --info-bg: #dce9ef;
+  --info-border: #4d7087;
+  --info-action-fg: #fff8e8;
+
+  /* Parchment action family. */
+  --gold: #6f5417;
+  --gold-hover: #7c5e16;
+  --gold-active: #5f460d;
+  --gold-soft: #d8c28c;
+  --action-fg: #fff8e8;
+
+  /* One canonical family per semantic meaning. */
+  --success: #2f5d36;
+  --success-bg: #e1ebda;
+  --success-border: #54745a;
+  --warning: #6a470b;
+  --warning-bg: #f2dfb3;
+  --warning-border: #8a641f;
+  --danger: #7c2928;
+  --danger-bg: #f0d8d4;
+  --danger-border: #943d3a;
+  --danger-action: #8c302f;
+  --danger-action-hover: #742423;
+  --danger-action-fg: #fff8e8;
+
+  /* Enemy is an identity, not a destructive-action color. */
+  --enemy: #7d2025;
+  --enemy-accent: #9e2f32;
+  --enemy-bg: #3a1114;
+  --enemy-surface: #efe0d7;
+  --enemy-fg: #fff3df;
+  --enemy-ink: #53161a;
+  --enemy-bubble-bg: #c8524d;
+  --enemy-bubble-fg: #1c0d0d;
+
+  /* Death/defeat is distinct from enemy, disabled, and danger. */
+  --dead-bg: #292725;
+  --dead-surface: #dad5cc;
+  --dead-border: #11100f;
+  --dead-fg: #fff8e8;
+  --dead-ink: #2d2a27;
+
+  --disabled-bg: #d8cfbd;
+  --disabled-fg: #5d554a;
+  --disabled-border: #8e8473;
+
+  /* Genuine item categories remain systematic but non-semantic. */
+  --item-treasure: #795716;
+  --item-treasure-bg: #eadcb4;
+  --item-weapon: #385f7b;
+  --item-weapon-bg: #dce7ed;
+  --item-wearable: #654a78;
+  --item-wearable-bg: #e7dfea;
+
+  --focus-ring: #315d79;
+  --focus-halo: #fbf4e3;
+  --selection-bg: #e4d4a9;
+  --information: var(--info);
+
+  /* Compatibility aliases used by existing layout components. */
+  --ink: var(--text-primary);
+  --muted: var(--text-secondary);
+  --line: var(--border-subtle);
+  --panel: var(--bg-surface);
+  --soft: var(--bg-surface-raised);
+  --interactive: var(--bg-surface-raised);
+  --interactive-hover: color-mix(in srgb, var(--gold-soft) 35%, var(--bg-surface-raised));
+  --accent: var(--gold);
+  --accent-dark: var(--gold-active);
+  --ui-border: var(--control-border);
+  --ui-soft: var(--bg-surface-raised);
+  --ui-ink: var(--text-primary);
+  --ui-muted: var(--text-secondary);
+  --ui-action: var(--gold);
+  --border-strong: var(--control-border);
+  --record-rule: var(--border-subtle);
+  --shadow: none;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-page: #17120e;
+  --bg-surface: #211b16;
+  --bg-surface-raised: #2b231c;
+  --bg-surface-inset: #18130f;
+  --text-primary: #f4ead8;
+  --text-secondary: #d0c1aa;
+  --text-muted: #b4a791;
+  --border-subtle: #685d4d;
+  --control-border: #9d8b70;
+  --shadow-color: rgb(0 0 0 / 42%);
+
+  --info: #87b7d7;
+  --info-bg: #1e3441;
+  --info-border: #87b7d7;
+  --info-action-fg: #17120e;
+
+  --gold: #d6b45f;
+  --gold-hover: #efd17c;
+  --gold-active: #c69b37;
+  --gold-soft: #594721;
+  --action-fg: #251b07;
+
+  --success: #a9c58d;
+  --success-bg: #263820;
+  --success-border: #89aa70;
+  --warning: #efb45e;
+  --warning-bg: #402d13;
+  --warning-border: #d49b48;
+  --danger: #ef9189;
+  --danger-bg: #40201e;
+  --danger-border: #d8736c;
+  --danger-action: #8f302f;
+  --danger-action-hover: #a9413f;
+  --danger-action-fg: #fff8e8;
+
+  --enemy: #e35d5d;
+  --enemy-accent: #e35d5d;
+  --enemy-bg: #120708;
+  --enemy-surface: #311719;
+  --enemy-fg: #fff0dd;
+  --enemy-ink: #ffd1c7;
+  --enemy-bubble-bg: #e8736d;
+  --enemy-bubble-fg: #160909;
+
+  --dead-bg: #0f0f0e;
+  --dead-surface: #292724;
+  --dead-border: #c7bba8;
+  --dead-fg: #f2eadf;
+  --dead-ink: #f2eadf;
+
+  --disabled-bg: #39322a;
+  --disabled-fg: #c7bba8;
+  --disabled-border: #756958;
+
+  --item-treasure: #d9b966;
+  --item-treasure-bg: #3a301b;
+  --item-weapon: #8db9d5;
+  --item-weapon-bg: #1d303b;
+  --item-wearable: #c6a7d6;
+  --item-wearable-bg: #33263a;
+
+  --focus-ring: #efd17c;
+  --focus-halo: #17120e;
+  --selection-bg: #4a3b1c;
+  --information: var(--info);
+}
+
+/* Typography roles */
+html, body, button, input, select, textarea, table {
+  font-family: var(--font-ui) !important;
+}
+body {
+  background: var(--bg-page) !important;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+h1, h2, h3, h4, h5, h6, p { color: inherit; }
+h1, .major-title {
+  margin-bottom: 0;
+  color: var(--text-primary);
+  font: 700 var(--text-xl)/1.2 var(--font-ui) !important;
+  letter-spacing: 0 !important;
+}
+h2, .section-title,
+:is(.section-heading, .panel-heading, .split-heading, .combat-toolbar, .crawl-header, .inventory-management-header, .initiative-titlebar) h2 {
+  color: var(--text-primary);
+  font: 700 var(--text-lg)/1.25 var(--font-ui) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+h3, .subsection-title,
+:is(.section-heading, .panel-heading, .split-heading, .combat-toolbar, .crawl-header, .inventory-management-header, .initiative-titlebar) h3,
+:is(.glance-title, .shopping-cart, .inventory-board-node > header, .text-inventory-card-header, .combat-cheers) strong:first-child {
+  color: var(--text-primary);
+  font: 700 var(--text-md)/1.3 var(--font-ui) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+h4 { font: 700 var(--text-sm)/1.3 var(--font-ui) !important; letter-spacing: 0 !important; }
+
+button, input, select, textarea, .ui-text,
+:is(.tabs, .catalog-category-tabs, .declaration-shortcuts, .target-shortcuts) button {
+  font-family: var(--font-ui) !important;
+  font-size: var(--text-sm) !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+p, td, dd, li, .body-text, .informational-text { font-size: 13px; line-height: 1.4; }
+label, th { font-size: 12px !important; line-height: 1.35; }
+small, .helper-text, .field-help, .rule-note, .capacity-copy,
+:is(.action-explanation, .specialized-rate-note, .segment-modifier-note),
+:is(.panel-heading, .section-heading, .split-heading) p,
+:is(.inventory-stack-main, .text-item-copy, .catalog-row, .shopping-line, .combatant-card, .travel-panel) small {
+  color: var(--text-muted) !important;
+  font-family: var(--font-ui) !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  line-height: 1.4 !important;
+  text-transform: none !important;
+}
+.action-explanation { gap: 5px; padding-top: 4px !important; font-size: var(--text-xs) !important; font-weight: 400 !important; line-height: 1.35 !important; }
+.action-explanation small { display: inline; margin-left: 5px; }
+:is(.declaration-shortcuts, .target-shortcuts, .combatant-collapse-controls) button {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+:is(
+  [class$="-meta"], [class$="-note"], [class$="-hint"], [class$="-status"],
+  [class$="-copy"], [class$="-direction"], [class$="-kicker"], [class$="-source"],
+  [class$="-category"], [class$="-load"], [class$="-byline"], [class$="-role"],
+  [class$="-help"], .slot-number, .catalog-count, .catalog-header,
+  .starting-equipment-line.header, .declaration-shortcuts > span,
+  .initiative-stat-label, .inventory-node-handle span, .reaction-table-compact
+) {
+  color: var(--text-muted) !important;
+  font-size: var(--text-xs) !important;
+  letter-spacing: 0 !important;
+  line-height: 1.35 !important;
+  text-transform: none !important;
+}
+.eyebrow, th, legend,
+:is(.owner-section-heading, .text-loadout-group, .loose-stacks, .travel-section-heading) > :is(b, h4),
+:is(.catalog-header, .starting-equipment-line.header, .march-direction) {
+  letter-spacing: .02em !important;
+  text-transform: none !important;
+}
+.eyebrow { color: var(--text-secondary); font-size: 12px; }
+
+.data-value,
+:is(.summary-card, .xp-summary-grid, .travel-result-line, .shopping-summary, .split-widget, .party-gold-ledger) strong,
+:is(.dashboard-hp, .combat-hp-controls, .inventory-meter, .text-load-meter) b,
+:is(.mini-stats, .mini-saves, .combat-strip) b {
+  color: var(--text-primary);
+  font-family: var(--font-ui) !important;
+  font-size: var(--text-md) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Passive structure: neutral, square, and quiet. */
+.surface,
+:is(.campaign-header, .panel, .character-card, .summary-card, .guide-section, .shopping-cart,
+  .xp-split-panel, .catalog-browser, .inventory-board-section, .inventory-board-node,
+  .inventory-container-tile, .inventory-worn-area, .sell-zone, .combatant-card,
+  .combatant-declaration, .initiative-column, .initiative-titlebar, .travel-day,
+  .text-inventory-card, .text-container-tree, .chat-drawer, .chat-messages,
+  .character-stat-panel, .character-macros, .action-guide, .segmented-rules,
+  .surprise-panel, .shopping-payment-strip, .xp-summary-grid > div,
+  .spellbook-list > article, .spell-slot-list > div, .character-spell-panel,
+  .segmented-combatant, .segment-detail-list article, .roll-initiative-card,
+  .room-xp-list span, .dashboard-hp, .compact-light, .chat-quick-rolls details,
+  .chat-message > div, .chat-header, .chat-compose, .chat-dice-tray,
+  .inventory-create-panel, .inventory-discard-panel, fieldset) {
+  border-color: var(--border-subtle) !important;
+  border-radius: 3px !important;
+  background: var(--bg-surface) !important;
+  box-shadow: none !important;
+  color: var(--text-primary);
+}
+:is(th, .catalog-header, .ground-table thead, .inventory-board-node > header,
+  .character-pool, .march-slot, .inactive-declaration-notice,
+  .text-inventory-pile > header, .text-inventory-notes, .segment-detail-panel,
+  .reaction-table, .room-xp-control) {
+  border-color: var(--border-subtle) !important;
+  background: var(--bg-surface-raised) !important;
+  color: var(--text-secondary);
+}
+:is(.combat-strip, .mini-stats, .mini-saves) > :is(span, button),
+:is(.catalog-row, .editable-lines, .empty-state, .chat-status, .whisper-controls,
+  .chat-sheet-scroll, .chat-dock-controls, .participant-condition-picker > div,
+  .participant-condition-list article, .current-combat-weapon,
+  .dashboard-physical-hands, .combatant-header, .combatant-footer) {
+  border-color: var(--border-subtle) !important;
+  background: var(--bg-surface-raised) !important;
+  color: var(--text-primary) !important;
+}
+:is(.section-heading, .panel-heading, .split-heading, .combat-toolbar, .crawl-header,
+  .inventory-management-header, .initiative-titlebar) {
+  border-bottom-color: var(--border-subtle) !important;
+  background: transparent !important;
+  color: var(--text-primary);
+}
+
+/* One interaction language. Gold means actionable. */
+.interactive,
+button, input, select, textarea, details > summary,
+:is(.inventory-stack-tile, .worn-item, .text-inventory-item, .glance-card,
+  .inventory-container-tile, .text-container-tree, .pool-character,
+  .march-character, .mission-choice, .segment-card,
+  .catalog-row[role="button"], .character-field-roll-label) {
+  border-color: var(--control-border) !important;
+}
+button, details > summary,
+:is(.inventory-stack-tile, .worn-item, .text-inventory-item, .glance-card,
+  .inventory-container-tile, .text-container-tree, .pool-character,
+  .march-character, .mission-choice, .segment-card) {
+  border-radius: 2px !important;
+  background-color: var(--bg-surface-raised);
+  color: var(--text-primary);
+  box-shadow: none !important;
+}
+input, select, textarea {
+  border-radius: 2px !important;
+  background: var(--bg-surface-inset) !important;
+  color: var(--text-primary) !important;
+}
+::placeholder { color: var(--text-muted); opacity: 1; }
+button:hover:not(:disabled), details > summary:hover,
+:is(.inventory-stack-tile, .worn-item, .text-inventory-item, .glance-card,
+  .inventory-container-tile, .text-container-tree, .pool-character,
+  .march-character, .mission-choice, .segment-card):hover {
+  border-color: var(--gold-hover) !important;
+  background-color: color-mix(in srgb, var(--gold-soft) 35%, var(--bg-surface-raised)) !important;
+  color: var(--text-primary) !important;
+  transform: none !important;
+}
+button:active:not(:disabled), details > summary:active {
+  border-color: var(--gold-active) !important;
+  background-color: color-mix(in srgb, var(--gold-soft) 58%, var(--bg-surface)) !important;
+}
+:is(button, input, select, textarea, details > summary):focus-visible {
+  outline: 3px solid var(--focus-ring) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px var(--focus-halo) !important;
+}
+.selected,
+:is(button, .mission-choice)[aria-pressed="true"],
+:is(button, .catalog-category-tabs button, .declaration-shortcuts button, .target-shortcuts button).selected,
+:is(.catalog-category-tabs button, .declaration-shortcuts button, .target-shortcuts button).active {
+  border-color: var(--gold-active) !important;
+  background: color-mix(in srgb, var(--gold-soft) 62%, var(--bg-surface)) !important;
+  color: var(--text-primary) !important;
+  font-weight: 700;
+}
+:is(.primary-button, .crawl-button, .shopping-checkout-button) {
+  border-color: var(--gold-active) !important;
+  background: var(--gold) !important;
+  color: var(--action-fg) !important;
+}
+:is(.primary-button, .crawl-button, .shopping-checkout-button):hover:not(:disabled) {
+  border-color: var(--gold-active) !important;
+  background: var(--gold-hover) !important;
+  color: var(--action-fg) !important;
+}
+:is(.primary-button, .crawl-button, .shopping-checkout-button,
+  .success-button, .danger-button, .apply-damage-button, .encounter-button)
+  :is(b, strong, span, small) {
+  color: inherit !important;
+}
+.secondary-button,
+.secondary-action,
+.previous-segment-button,
+.cancel-button {
+  border-color: var(--control-border) !important;
+  background: var(--bg-surface-raised) !important;
+  color: var(--text-primary) !important;
+}
+.success-button {
+  border-color: var(--success-border) !important;
+  background: var(--success) !important;
+  color: var(--action-fg) !important;
+}
+.warning-button {
+  border-color: var(--warning-border) !important;
+  background: var(--warning-bg) !important;
+  color: var(--warning) !important;
+}
+.danger-button,
+.apply-damage-button,
+.encounter-button {
+  border-color: var(--danger-action) !important;
+  background: var(--danger-action) !important;
+  color: var(--danger-action-fg) !important;
+}
+.danger-button:hover:not(:disabled),
+.apply-damage-button:hover:not(:disabled),
+.encounter-button:hover:not(:disabled) {
+  border-color: var(--danger-action-hover) !important;
+  background: var(--danger-action-hover) !important;
+  color: var(--danger-action-fg) !important;
+}
+
+/* Plain underlined text is the dashboard's stable text-action convention. */
+.action-link, .danger-link, .text-button,
+.character-name-link, .weapon-name-trigger, .segment-combatant-link,
+.character-field-roll-label, .npc-stable-identity .weapon-rules-tooltip-trigger {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: inherit;
+  text-decoration-line: underline !important;
+  text-decoration-color: currentColor !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 3px !important;
+}
+a[href], [role="link"], details > summary {
+  text-decoration-line: underline;
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+details > summary:hover { text-decoration-thickness: 2px; }
+.danger-link { color: var(--danger) !important; }
+.action-link:hover:not(:disabled), .text-button:hover:not(:disabled),
+.character-name-link:hover:not(:disabled), .weapon-name-trigger:hover:not(:disabled) {
+  background: var(--selection-bg) !important;
+  text-decoration-thickness: 2px !important;
+}
+
+button:disabled, input:disabled, select:disabled, textarea:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+  border-color: var(--disabled-border) !important;
+  background: var(--disabled-bg) !important;
+  color: var(--disabled-fg) !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+}
+button:disabled { text-decoration: none !important; }
+option { background: var(--bg-surface-raised); color: var(--text-primary); }
+
+/* Unavailable and spent content stays legible; never fade whole controls. */
+:is(fieldset, .combat-action-fieldset):disabled,
+.combat-action-fieldset.control-restricted,
+.event-adjudication.control-restricted,
+.segmented-combatant.control-restricted :is(input, select, textarea, button),
+.inventory-hand-slot.reserved,
+.character-hand-slot.reserved {
+  border-color: var(--disabled-border) !important;
+  background: var(--disabled-bg) !important;
+  color: var(--disabled-fg) !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+.inventory-hand-slot.invalid,
+.character-hand-slot.invalid,
+.text-loadout-group.invalid {
+  border-color: var(--warning-border) !important;
+  border-style: solid !important;
+  background: var(--warning-bg) !important;
+  color: var(--warning) !important;
+  opacity: 1 !important;
+}
+.hand-loadout-warning {
+  margin: 6px 0;
+  border: 2px solid var(--warning-border);
+  border-left-width: 6px;
+  background: var(--warning-bg);
+  padding: 7px 9px;
+  color: var(--warning);
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+.weapon-hands-hint {
+  color: var(--text-secondary);
+  font-weight: 800;
+}
+:is(.compact-light, .light-card, .crawl-light-row).spent,
+:is(.effect-list, .participant-condition-list) article.expired {
+  border-color: var(--disabled-border) !important;
+  background: var(--disabled-bg) !important;
+  color: var(--disabled-fg) !important;
+  opacity: 1 !important;
+}
+.crawl-command-bar > button small,
+.encounter-summary > span small,
+.osric-roll-pool small i.dropped {
+  color: inherit;
+  opacity: 1 !important;
+}
+
+/* Top-level tabs: one component, one state model. */
+.tabs {
+  display: flex;
+  gap: 2px;
+  margin: 10px 0 14px;
+  border: 0 !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0;
+  box-shadow: none !important;
+}
+.tabs button {
+  min-height: 34px !important;
+  border: 0 !important;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 6px 9px !important;
+  color: var(--text-secondary) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+.tabs button:hover:not(:disabled) {
+  border-bottom-color: var(--gold-soft) !important;
+  background: color-mix(in srgb, var(--gold-soft) 18%, transparent) !important;
+  color: var(--text-primary) !important;
+}
+.tabs button[class*="tab-"].active {
+  border-bottom-color: var(--gold) !important;
+  background: color-mix(in srgb, var(--gold-soft) 25%, transparent) !important;
+  color: var(--text-primary) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+
+/* Semantic states retain the same meaning in every workspace. */
+.success, .healthy, .attack-hit, .save-success, .funds-ready { color: var(--success) !important; }
+.warning, .rest-due, .capacity-warning { color: var(--warning) !important; }
+.danger, .error, .attack-miss, .save-failure, .danger-link, .funds-short { color: var(--danger) !important; }
+.notice, .attack-hit, .save-success {
+  border-color: var(--success-border) !important;
+  background: var(--success-bg) !important;
+}
+.error-banner, .attack-miss, .save-failure, .target-required {
+  border-color: var(--danger-border) !important;
+  background: var(--danger-bg) !important;
+  color: var(--danger) !important;
+}
+.morale-reminder, .rest-status.rest-due, .inventory-capacity-warning,
+.weapon-mismatch, .surprise-forfeit-notice, .raised-hands-bar {
+  border-color: var(--warning-border) !important;
+  background: var(--warning-bg) !important;
+  color: var(--warning) !important;
+}
+.close-lockout-notice, .informational-notice {
+  border-color: var(--info-border) !important;
+  background: var(--info-bg) !important;
+  color: var(--info) !important;
+}
+.ready-toggle.active, .mission-status-button.active, .expedition-toggle.selected {
+  border-color: var(--success-border) !important;
+  background: var(--success-bg) !important;
+  color: var(--success) !important;
+}
+.segment-card.current,
+.compact-segmented-control button.active,
+.osric-mode-toggle button.active,
+.mode-switch button.active {
+  border-color: var(--info-border) !important;
+  background: var(--info-bg) !important;
+  color: var(--info) !important;
+}
+.segment-card.current::after {
+  content: "Current";
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  color: var(--info);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.surprise-side.party,
+.surprise-side-row.party,
+.surprise-color-key .party,
+.surprise-result-summary span.party,
+.segment-card.surprise-party {
+  border-color: var(--warning-border) !important;
+  background: var(--warning-bg) !important;
+  color: var(--warning) !important;
+}
+.surprise-side.opposition,
+.surprise-side-row.opposition,
+.surprise-color-key .opposition,
+.surprise-result-summary span.opposition,
+.segment-card.surprise-opposition {
+  border-color: var(--enemy-accent) !important;
+  background: var(--enemy-surface) !important;
+  color: var(--enemy-ink) !important;
+}
+.surprise-color-key .both,
+.segment-card.surprise-both {
+  border-color: var(--enemy-accent) !important;
+  background: repeating-linear-gradient(135deg, var(--warning-bg) 0 12px, var(--enemy-surface) 12px 24px) !important;
+  color: var(--text-primary) !important;
+}
+.hp-bar.overfull .hp-bar-fill,
+.monster-hp-bar.overfull i.filled {
+  border-color: var(--info-border) !important;
+  background: var(--info) !important;
+}
+.hp-bar.overfull b { color: var(--info-action-fg) !important; }
+.npc-number-badge {
+  border-color: var(--info-border) !important;
+  background: var(--info) !important;
+  color: var(--info-action-fg) !important;
+}
+.travel-result-line.total,
+.travel-time-strip,
+html[data-theme="dark"] .inventory-container-tile.quick-access {
+  border-color: var(--info-border) !important;
+  background: var(--info-bg) !important;
+  color: var(--info) !important;
+}
+.travel-result-line.total :is(span, strong, small),
+.travel-time-strip :is(span, strong, small) { color: inherit !important; }
+.monster-hp-bar i.red.filled { border-color: var(--danger-border) !important; background: var(--danger) !important; }
+.monster-hp-bar i.orange.filled,
+.monster-hp-bar i.yellow.filled,
+.monster-hp-bar i.temporary { border-color: var(--warning-border) !important; background: var(--warning) !important; }
+.monster-hp-bar i.green.filled { border-color: var(--success-border) !important; background: var(--success) !important; }
+.unarmed-outcome.cancelled > strong { color: var(--text-secondary) !important; }
+
+/* Theme switching changes colors only. Eliminate leaked white/blue panels. */
+html[data-theme="dark"] :is(
+  .campaign-header, .panel, .character-card, .summary-card, .guide-section,
+  .shopping-cart, .xp-split-panel, .catalog-browser, .inventory-board-section,
+  .inventory-board-node, .inventory-container-tile, .inventory-hand-slot,
+  .inventory-worn-area, .sell-zone, .stack-actions-popout, .combatant-card,
+  .combatant-declaration, .initiative-column, .initiative-titlebar, .travel-day,
+  .text-inventory-card, .text-container-tree, .text-inventory-item,
+  .chat-drawer, .chat-messages, .chat-header, .chat-compose, .chat-dice-tray,
+  .character-stat-panel, .character-macros, .action-guide, .segmented-rules,
+  .surprise-panel, .catalog-row, .ground-table tbody tr, .empty-state,
+  .editable-lines, .chat-status, .whisper-controls, .chat-sheet-scroll,
+  .chat-dock-controls, .participant-condition-picker > div,
+  .participant-condition-list article, .current-combat-weapon,
+  .dashboard-physical-hands, .combatant-header, .combatant-footer,
+  .combat-strip > span, .combat-strip > button, .mini-stats > span,
+  .mini-stats > button, .mini-saves > span, .mini-saves > button, fieldset
+) { border-color: var(--border-subtle) !important; background: var(--bg-surface) !important; color: var(--text-primary) !important; }
+html[data-theme="dark"] :is(
+  th, .catalog-header, .ground-table thead, .inventory-board-node > header,
+  .character-pool, .march-slot, .inactive-declaration-notice,
+  .text-inventory-pile > header, .text-inventory-notes, .segment-detail-panel,
+  .reaction-table, .room-xp-control, .current-combat-weapon,
+  .dashboard-initiative-panel > summary
+) { border-color: var(--border-subtle) !important; background: var(--bg-surface-raised) !important; color: var(--text-secondary) !important; }
+html[data-theme="dark"] :is(input, select, textarea) { background: var(--bg-surface-inset) !important; color: var(--text-primary) !important; }
+html[data-theme="dark"] :is(.inventory-stack-tile.treasure, .text-inventory-item.treasure) {
+  background: color-mix(in srgb, var(--gold) 13%, var(--bg-surface)) !important;
+}
+
+/* Item category color is semantic: treasure, weapons, then wearable equipment. */
+:is(.inventory-stack-tile, .text-inventory-item, .worn-item).treasure {
+  border-color: var(--item-treasure) !important;
+  background: var(--item-treasure-bg) !important;
+}
+:is(.inventory-stack-tile, .text-inventory-item, .worn-item).weapon {
+  border-color: var(--item-weapon) !important;
+  background: var(--item-weapon-bg) !important;
+}
+:is(.inventory-stack-tile, .text-inventory-item, .worn-item).wearable {
+  border-color: var(--item-wearable) !important;
+  background: var(--item-wearable-bg) !important;
+}
+html[data-theme="dark"] :is(.inventory-stack-tile, .text-inventory-item, .worn-item).treasure {
+  background: var(--item-treasure-bg) !important;
+}
+html[data-theme="dark"] :is(.inventory-stack-tile, .text-inventory-item, .worn-item).weapon {
+  background: var(--item-weapon-bg) !important;
+}
+html[data-theme="dark"] :is(.inventory-stack-tile, .text-inventory-item, .worn-item).wearable {
+  background: var(--item-wearable-bg) !important;
+}
+
+/* Player colors remain gameplay information, confined to identity accents. */
+:is(.character-card, .glance-card, .pool-character, .march-character, .mission-choice,
+  .scouting-character, .owner-node.character-owner, .text-inventory-card.character,
+  .segmented-combatant.player-combatant, .chat-quick-character,
+  .chat-character-options label, .chat-onboarding-characters label,
+  .chat-message, .raised-hands-overlay button) {
+  --character-accent: var(--character-accent-light, var(--gold));
+  border-left-color: var(--character-accent,
+    var(--node-accent,
+      var(--text-owner-accent,
+        var(--combatant-accent,
+          var(--chat-accent, var(--gold)))))) !important;
+}
+html[data-theme="dark"] :is(.character-card, .glance-card, .pool-character, .march-character, .mission-choice,
+  .scouting-character, .owner-node.character-owner, .text-inventory-card.character,
+  .segmented-combatant.player-combatant, .chat-quick-character,
+  .chat-character-options label, .chat-onboarding-characters label,
+  .chat-message, .raised-hands-overlay button) {
+  --character-accent: var(--character-accent-dark, var(--gold));
+}
+:is(.glance-card, .pool-character, .march-character, .mission-choice, .scouting-character,
+  .segmented-combatant.player-combatant) {
+  background: color-mix(in srgb, var(--character-color, var(--gold)) 7%, var(--bg-surface)) !important;
+}
+.segmented-combatant.player-combatant { --combatant-accent: var(--character-accent); }
+.owner-node.character-owner { --node-accent: var(--character-accent); }
+.text-inventory-card.character { --text-owner-accent: var(--character-accent); }
+:is(.chat-quick-character, .chat-character-options label, .chat-onboarding-characters label,
+  .chat-message, .raised-hands-overlay button) { --chat-accent: var(--character-accent); }
+html[data-theme="dark"] :is(.glance-card, .pool-character, .march-character, .mission-choice, .scouting-character, .combat-march-chip) {
+  background: color-mix(in srgb, var(--character-color, var(--gold)) 9%, var(--bg-surface)) !important;
+  color: var(--text-primary) !important;
+}
+.march-character.torch-carrier {
+  border-color: var(--warning) !important;
+  border-left-color: var(--character-accent, var(--warning)) !important;
+}
+
+/* Hostile identity is red + near-black and never borrows the danger button. */
+.segmented-panel { --opposition-side: var(--enemy-accent); }
+.combat-side-divider {
+  background: var(--enemy-accent) !important;
+  box-shadow: 0 1px 0 var(--enemy-bg);
+}
+.side-badge.opposition {
+  border-color: var(--enemy-accent) !important;
+  background: var(--enemy-bg) !important;
+  color: var(--enemy-fg) !important;
+}
+.segmented-combatant.side-opposition:not(.is-defeated-enemy) {
+  border-color: var(--enemy-accent) !important;
+  border-left-width: 6px !important;
+  border-left-color: var(--enemy-accent) !important;
+  background: var(--enemy-surface) !important;
+}
+.segmented-combatant.side-opposition:not(.is-defeated-enemy) > .combatant-header {
+  border-bottom-color: var(--enemy-accent) !important;
+  background: var(--enemy-bg) !important;
+  color: var(--enemy-fg) !important;
+}
+.segmented-combatant.side-opposition:not(.is-defeated-enemy) > .combatant-header :is(strong, small, .side-badge) {
+  color: var(--enemy-fg) !important;
+}
+.enemy-number-badge {
+  border-color: var(--enemy-fg) !important;
+  background: var(--enemy-accent) !important;
+  color: var(--enemy-fg) !important;
+}
+.npc-number-badge.opposition {
+  border-color: var(--enemy-fg) !important;
+  background: var(--enemy-accent) !important;
+  color: var(--enemy-fg) !important;
+}
+.segment-event-entry.actor-enemy :is(.segment-event-summary, .event-adjudication) {
+  border-color: var(--enemy-accent) !important;
+  background: var(--enemy-surface) !important;
+  color: var(--enemy-ink) !important;
+}
+.segment-event-entry.actor-enemy :is(.segment-event-summary, .event-adjudication) :is(strong, small, span) {
+  color: inherit;
+}
+.recent-enemy-list button {
+  border-color: var(--enemy-accent) !important;
+  border-left-width: 5px !important;
+  background: var(--enemy-surface) !important;
+  color: var(--enemy-ink) !important;
+}
+.recent-enemy-list button small { color: inherit; }
+.xp-enemy-list > article {
+  border-color: var(--dead-border) !important;
+  border-left-width: 5px !important;
+  background: var(--dead-surface) !important;
+  color: var(--dead-ink) !important;
+}
+.combatant-category-divider.defeated,
+.inactive-combatant-toggle.open {
+  border-color: var(--dead-border) !important;
+  background: var(--dead-surface) !important;
+  color: var(--dead-ink) !important;
+}
+.identity-kind-label {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  border: 1px solid currentColor;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.enemy-label { background: var(--enemy-bg); color: var(--enemy-fg); }
+
+/* Death is charcoal, fully legible, labeled, and keeps a character-color stripe. */
+.segmented-combatant:is(.is-exsanguinated, .is-defeated-enemy) {
+  border-color: var(--dead-border) !important;
+  border-left-color: var(--character-accent, var(--dead-border)) !important;
+  background: var(--dead-surface) !important;
+  color: var(--dead-ink) !important;
+  filter: none !important;
+  opacity: 1 !important;
+}
+.segmented-combatant:is(.is-exsanguinated, .is-defeated-enemy) > .combatant-header {
+  border-bottom-color: var(--dead-border) !important;
+  background: var(--dead-bg) !important;
+  color: var(--dead-fg) !important;
+}
+.segmented-combatant:is(.is-exsanguinated, .is-defeated-enemy) > .combatant-header :is(strong, small, .side-badge) {
+  color: var(--dead-fg) !important;
+}
+.combat-state-label {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid currentColor;
+  background: var(--dead-bg);
+  padding: 3px 7px;
+  color: var(--dead-fg);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.combat-state-label.incapacitated {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.segmented-combatant.is-exsanguinated .combatant-header::after { content: none !important; }
+
+.chat-message:not(.hostile) > div,
+.chat-message:not(.hostile) > .chat-message-emoji,
+.raised-hands-overlay button {
+  border-color: var(--character-accent, var(--gold)) !important;
+}
+.chat-message.hostile > div,
+.chat-message.hostile > .chat-message-emoji {
+  border-color: var(--enemy-bubble-fg) !important;
+  background: var(--enemy-bubble-bg) !important;
+  color: var(--enemy-bubble-fg) !important;
+}
+.chat-message.hostile :is(header strong, header time, .roll-line, .roll-line.heading, .roll-line.success, .roll-line.failure) {
+  background: transparent !important;
+  color: var(--enemy-bubble-fg) !important;
+}
+.chat-launcher {
+  border-color: var(--gold-active) !important;
+  background: var(--gold) !important;
+  color: var(--action-fg) !important;
+}
+
+/* Dense Party Chat edge toolbars retain the global palette without growing. */
+.chat-header > .chat-dock-controls {
+  border-color: transparent !important;
+  background: transparent !important;
+}
+.chat-dock-popover,
+.chat-bottom-tools,
+.chat-bottom-tools .dice-syntax-help > p {
+  border-color: var(--border-subtle) !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+.chat-header :is(button, summary, label, select) {
+  font-size: 12px !important;
+}
+.chat-bottom-tools :is(button, summary, label, select) {
+  font-size: 11px !important;
+  line-height: 1.2;
+}
+
+/* One disclosure language across tabs: gold caret, compact label, stable open state. */
+details > summary {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: "▸";
+  display: inline-grid;
+  width: 11px;
+  flex: 0 0 11px;
+  place-items: center;
+  color: var(--gold);
+  font-size: 11px;
+  line-height: 1;
+  transform-origin: center;
+  transition: transform 120ms ease, color 120ms ease;
+}
+details[open] > summary::before {
+  color: var(--gold-active);
+  transform: rotate(90deg);
+}
+details > summary:hover::before { color: var(--gold-hover); }
+details > summary::after {
+  content: "Expand";
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+details[open] > summary::after { content: "Collapse"; }
+:is(.inventory-management-shell details, .chat-tool-menu, .engagement-indicator, .text-line-actions, .inventory-tile-actions) > summary::after { content: none !important; }
+.disclosure-state-word {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+:is(.character-expand-button, .combatant-collapse-toggle, .collapse-button,
+  .chat-docked-actions button[aria-expanded]) {
+  display: inline-flex;
+  min-height: 26px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-color: var(--gold) !important;
+  background: var(--bg-surface-raised) !important;
+  padding: 2px 6px !important;
+  color: var(--text-secondary) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+:is(.character-expand-button, .combatant-collapse-toggle, .collapse-button,
+  .chat-docked-actions button[aria-expanded])::before {
+  content: "▾";
+  width: 10px;
+  flex: 0 0 10px;
+  color: var(--gold);
+  font-size: 10px;
+  line-height: 1;
+}
+:is(.character-expand-button, .combatant-collapse-toggle, .collapse-button,
+  .chat-docked-actions button[aria-expanded])[aria-expanded="false"]::before,
+.collapsed .collapse-button::before { content: "▸"; }
+:is(.character-expand-button, .combatant-collapse-toggle, .collapse-button,
+  .chat-docked-actions button[aria-expanded]):hover::before { color: var(--gold-hover); }
+
+:is(.text-card-toggle, .text-tree-toggle) :is(.text-tree-caret, span[aria-hidden]:not(.text-owner-icon)) {
+  color: var(--gold) !important;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+:is(.combatant-collapse-controls, .text-inventory-heading > span:last-child) {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 3px;
+}
+:is(.combatant-collapse-controls, .text-inventory-heading > span:last-child) button {
+  min-height: 26px !important;
+  padding: 2px 7px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+.inactive-combatant-toggle > b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.inactive-combatant-toggle > b::before { content: "▸"; color: var(--gold); }
+.inactive-combatant-toggle[aria-expanded="true"] > b::before { content: "▾"; }
+
+@media (max-width: 700px) {
+  :root { --text-xl: 22px; --text-lg: 17px; --text-md: 14px; }
+  .tabs button { font-size: 12px !important; }
+}
+/* Shared weapon-rule affordances stay secondary to ordinary play controls. */
+.weapon-name-trigger,
+.equipment-info-trigger {
+  appearance: none;
+  border: 0;
+  border-bottom: 1px dotted currentColor;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  min-height: 0;
+  padding: 0;
+  text-align: inherit;
+}
+
+.equipment-info-trigger {
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  min-width: 30px;
+}
+
+.weapon-rules-popover {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  box-sizing: border-box;
+  color: var(--text-primary);
+  max-height: min(480px, calc(100vh - 16px));
+  overflow: auto;
+  padding: 12px;
+  position: fixed;
+  z-index: 1200;
+}
+
+.weapon-rules-card > strong,
+.equipment-rules-key > strong {
+  display: block;
+  letter-spacing: .04em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.weapon-rules-card dl,
+.equipment-rules-key dl {
+  display: grid;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.weapon-rules-card dl > div,
+.equipment-rules-key dl > div {
+  display: grid;
+  grid-template-columns: minmax(92px, .7fr) minmax(0, 1.3fr);
+}
+
+.weapon-rules-card dt,
+.equipment-rules-key dt {
+  color: var(--text-secondary);
+}
+
+.weapon-rules-card dd,
+.equipment-rules-key dd {
+  margin: 0;
+}
+
+.weapon-armour-row {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 9px;
+  padding-top: 8px;
+}
+
+.weapon-armour-row > span {
+  color: var(--text-secondary);
+  display: block;
+  font-size: .75rem;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.weapon-armour-grid {
+  display: grid;
+  font-variant-numeric: tabular-nums;
+  gap: 3px 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.weapon-armour-grid span {
+  white-space: nowrap;
+}
+
+.weapon-armour-grid b {
+  font-weight: 600;
+}
+
+.weapon-rules-card > small {
+  color: var(--text-secondary);
+  display: block;
+  margin-top: 7px;
+}
+
+@media (max-width: 600px) {
+  .equipment-info-trigger {
+    height: 44px;
+    min-width: 44px;
+  }
+
+  .weapon-rules-card dl > div,
+  .equipment-rules-key dl > div {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+}
+
+.combatant-setup-panel {
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+}
+
+.combatant-setup-panel > summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  min-height: 34px;
+}
+
+.combatant-setup-panel > summary span,
+.combatant-setup-panel > summary small {
+  display: block;
+}
+
+.combatant-setup-panel > summary small {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.combatant-setup-grid {
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding-top: 10px;
+}
+
+.combatant-setup-grid > label,
+.combatant-setup-grid > fieldset {
+  min-width: 0;
+}
+
+.combatant-setup-grid label,
+.combatant-setup-grid legend {
+  color: var(--text-secondary);
+  font-size: .76rem;
+}
+
+.combatant-setup-grid input,
+.combatant-setup-grid select {
+  box-sizing: border-box;
+  max-width: 100%;
+  width: 100%;
+}
+
+.compact-segmented-control {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+}
+
+.compact-segmented-control button {
+  border-radius: 0;
+  min-width: 0;
+  text-transform: capitalize;
+}
+
+.compact-segmented-control button.active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.combatant-rules-weapon > span {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.engagement-indicator {
+  position: relative;
+}
+
+.engagement-indicator > summary {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 2px;
+  list-style: none;
+  min-height: 30px;
+  padding: 0 5px;
+}
+
+.engagement-indicator > summary::-webkit-details-marker { display: none; }
+
+.engagement-indicator > div {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  display: grid;
+  gap: 5px;
+  min-width: 190px;
+  padding: 9px;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 30;
+}
+
+.engagement-indicator > div > span {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.weapon-speed-context {
+  color: var(--text-secondary);
+}
+
+.speed-attack-results.multiple {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.speed-attack-result {
+  min-width: 0;
+}
+
+.speed-attack-results.multiple .speed-attack-result {
+  border-left: 2px solid var(--border-subtle);
+  padding-left: 8px;
+}
+
+@media (max-width: 768px) {
+  .combatant-setup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .combatant-setup-grid,
+  .speed-attack-results.multiple { grid-template-columns: minmax(0, 1fr); }
+  .combatant-setup-panel > summary { min-height: 44px; }
+  .compact-segmented-control button { min-height: 44px; }
+  .engagement-indicator > summary { min-height: 44px; min-width: 44px; justify-content: center; }
+  .engagement-indicator > div { max-width: calc(100vw - 24px); right: auto; left: 0; }
+}
+
+/* Final theme contrast repairs for dense combat and inventory work surfaces. */
+html[data-theme="dark"] :is(
+  .party-gold-ledger, .inventory-board-section, .inventory-board-heading,
+  .inventory-board-node, .inventory-container-tile, .inventory-hand-slot,
+  .inventory-worn-area, .inventory-stack-tile, .text-inventory-card,
+  .text-container-tree, .text-inventory-item, .character-inventory-panel,
+  .character-container-tree, .character-hand-slot, .character-mini-shop,
+  .character-ground-list, .sell-zone, .inventory-sell-tile,
+  .shopping-payment-strip
+) {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+html[data-theme="dark"] :is(
+  .party-gold-ledger, .inventory-board-section, .inventory-board-node,
+  .inventory-container-tile, .inventory-hand-slot, .inventory-worn-area,
+  .inventory-stack-tile, .text-inventory-card, .text-container-tree,
+  .text-inventory-item, .character-inventory-panel, .character-container-tree,
+  .character-hand-slot, .sell-zone, .inventory-sell-tile, .shopping-payment-strip
+) :is(h2, h3, b, strong, label, span) {
+  color: var(--text-primary) !important;
+}
+html[data-theme="dark"] :is(
+  .party-gold-ledger, .inventory-board-section, .inventory-board-node,
+  .inventory-container-tile, .inventory-hand-slot, .inventory-worn-area,
+  .inventory-stack-tile, .text-inventory-card, .text-container-tree,
+  .text-inventory-item, .character-inventory-panel, .character-container-tree,
+  .character-hand-slot, .sell-zone, .inventory-sell-tile, .shopping-payment-strip
+) :is(small, p, .helper-text, .field-help) {
+  color: var(--text-secondary) !important;
+}
+html[data-theme="dark"] :is(
+  .party-gold-ledger input, .inventory-management-shell input,
+  .inventory-management-shell select, .inventory-management-shell textarea
+) {
+  border-color: var(--control-border) !important;
+  background: var(--bg-surface-inset) !important;
+  color: var(--text-primary) !important;
+}
+html[data-theme="dark"] :is(
+  .inventory-container-tile.quick-access, .inventory-stack-tile.treasure,
+  .character-hand-slot
+) {
+  background: var(--bg-surface-raised) !important;
+}
+html[data-theme="dark"] :is(
+  .osric-ability-strip > button, .initiative-score-tile, .initiative-derived-tile
+) {
+  border-color: var(--control-border) !important;
+  background: var(--bg-surface-raised) !important;
+  color: var(--text-primary) !important;
+}
+html[data-theme="dark"] :is(
+  .osric-ability-strip > button, .initiative-score-tile, .initiative-derived-tile
+) :is(b, strong, span) { color: inherit !important; }
+html[data-theme="dark"] :is(
+  .osric-ability-strip > button, .initiative-score-tile, .initiative-derived-tile
+) small { color: var(--text-secondary) !important; }
+html[data-theme="dark"] .osric-ability-strip > button > span {
+  background: var(--bg-surface-inset) !important;
+  color: var(--text-primary) !important;
+}
+html[data-theme="dark"] .osric-ability-strip > button > span small {
+  color: var(--text-secondary) !important;
+}
+html[data-theme="dark"] .osric-character-card .character-inventory-panel > summary {
+  background: var(--bg-surface-inset) !important;
+  color: var(--text-primary) !important;
+}
+html[data-theme="dark"] .osric-character-card .character-inventory-panel > summary :is(span, b) {
+  color: var(--text-primary) !important;
+}
+
+html:not([data-theme="dark"]) .segmented-combatant.side-opposition:not(.is-defeated-enemy) > .combatant-header .combatant-collapsed-summary,
+html:not([data-theme="dark"]) .segmented-combatant.side-opposition:not(.is-defeated-enemy) > .combatant-header .combatant-collapsed-summary :is(span, b, strong, small),
+html:not([data-theme="dark"]) .segmented-combatant.side-opposition:not(.is-defeated-enemy) > .combatant-header .monster-hp-readout > b {
+  color: var(--enemy-fg) !important;
+}
