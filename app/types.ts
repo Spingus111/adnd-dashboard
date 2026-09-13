@@ -242,6 +242,7 @@ export type StableNpc = {
   onslaughtDamage: string[];
   carryingCapacityStone: number | null;
   unarmedOverrides?: UnarmedOverrides;
+  psionics?: PsionicsSetup;
   notes: string;
 };
 
@@ -548,6 +549,19 @@ export type UnarmedOverrides = {
   appendages: number;
 };
 
+export type PsionicAttackMode = "Psionic Blast" | "Mind Thrust" | "Ego Whip" | "Id Insinuation" | "Psychic Crush";
+export type PsionicDefenseMode = "Mind Blank" | "Thought Shield" | "Mental Barrier" | "Intellect Fortress" | "Tower of Iron Will";
+
+export type PsionicsSetup = {
+  enabled: boolean;
+  currentAttackPoints: number;
+  maxAttackPoints: number;
+  currentDefensePoints: number;
+  maxDefensePoints: number;
+  attackModes: PsionicAttackMode[];
+  defenseModes: PsionicDefenseMode[];
+};
+
 export type GrappleHold = {
   id: string;
   attackerId: string;
@@ -638,6 +652,7 @@ export type SegmentedParticipant = {
   size?: "tiny" | "small" | "medium" | "large" | "huge" | "gargantuan";
   large?: boolean;
   unarmedOverrides?: UnarmedOverrides;
+  psionics?: PsionicsSetup;
 };
 
 export type MeleeEngagement = {

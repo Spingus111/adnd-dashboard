@@ -31,6 +31,7 @@ import { secureRandomIndex } from "./random";
 import { normalizeMonsterArmorProfile } from "./monster-armor";
 import { normalizeStableNpc } from "./npc-stable";
 import { normalizeUnarmedOverrides } from "./unarmed-combat";
+import { normalizePsionics } from "./psionics";
 
 type Tab = "dashboard" | "characters" | "party" | "expeditions" | "travel" | "inventory-management" | "xp" | "segmented" | "player-guide" | "gm-guide" | "phb" | "dmg";
 type SaveStatus = "loading" | "saved" | "saving" | "error";
@@ -526,6 +527,7 @@ export default function Toolkit() {
             temporaryDamage: Math.max(0, Number(participant.temporaryDamage) || 0),
             movementRate: Math.max(0, Number(participant.movementRate) || 0),
             unarmedOverrides: normalizeUnarmedOverrides(participant.unarmedOverrides),
+            psionics: normalizePsionics(participant.psionics),
             size: ["tiny", "small", "medium", "large", "huge", "gargantuan"].includes(String(participant.size)) ? participant.size : participant.large ? "large" : "medium",
             large: ["large", "huge", "gargantuan"].includes(String(participant.size)) || Boolean(participant.large),
             action: forcedVitalityAction ?? (String(participant.action) === "unarmed" ? "grapple" : participant.action),

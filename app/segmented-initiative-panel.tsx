@@ -41,6 +41,7 @@ import { stableNpcToParticipant } from "./npc-stable";
 import { applyManualCombatModifier, parseManualCombatModifier } from "./combat-manual-modifier";
 import { participantIsConscious, pruneInvalidCombatTargets } from "./combat-targeting";
 import { attackerArmorTarget, controllingHoldId, defenderArmorModifier, grappleOutcome, grappleResultModifier, holdsForParticipant, normalizeUnarmedOverrides, overbearOutcome, overbearResultModifier, participantIsGrappling, pileOnApplies, unarmedHitBreakdown, unarmedHitSucceeds } from "./unarmed-combat";
+import { normalizePsionics, psionicAttackModes, psionicDefenseModes } from "./psionics";
 import { getNonProficiencyPenalty, getSpellcastingTracks, getWeaponTrainingState, specialistClassLevel, specializedMissileRate } from "./osric-advancement";
 import { publishAttackControls, subscribeAttackRequests } from "./combat-attack-control";
 import { rollSecureDie, secureRandomFloat, secureRandomIndex } from "./random";
@@ -426,6 +427,7 @@ function blankParticipant(kind: "enemy" | "npc", markerNumber = 1, joinedRound =
     size: "medium",
     large: false,
     unarmedOverrides: normalizeUnarmedOverrides(null),
+    psionics: normalizePsionics(null),
   };
 }
 
@@ -667,6 +669,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
           weaponRulesIds: npc.weaponRulesIds,
           movementRate: npc.movementRate,
           unarmedOverrides: normalizeUnarmedOverrides(npc.unarmedOverrides),
+          psionics: normalizePsionics(npc.psionics),
           size: npc.size,
           large: npc.size === "large",
         };
@@ -956,6 +959,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
         ...(patch.weaponRulesIds !== undefined ? { weaponRulesIds: patch.weaponRulesIds } : {}),
         ...(patch.movementRate !== undefined ? { movementRate: patch.movementRate } : {}),
         ...(patch.unarmedOverrides !== undefined ? { unarmedOverrides: patch.unarmedOverrides } : {}),
+        ...(patch.psionics !== undefined ? { psionics: patch.psionics } : {}),
         ...(patch.size !== undefined ? { size: patch.size === "tiny" || patch.size === "small" ? "small" as const : patch.size === "large" || patch.size === "huge" || patch.size === "gargantuan" ? "large" as const : "medium" as const } : {}),
         ...(patch.large !== undefined ? { size: patch.large ? "large" as const : "medium" as const } : {}),
       } : null;
@@ -972,6 +976,10 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
 
   function updateUnarmedOverride<K extends keyof NonNullable<SegmentedParticipant["unarmedOverrides"]>>(participant: SegmentedParticipant, key: K, value: NonNullable<SegmentedParticipant["unarmedOverrides"]>[K]) {
     updateParticipant(participant.id, { unarmedOverrides: { ...normalizeUnarmedOverrides(participant.unarmedOverrides), [key]: value } });
+  }
+
+  function updatePsionics(participant: SegmentedParticipant, patch: Partial<NonNullable<SegmentedParticipant["psionics"]>>) {
+    updateParticipant(participant.id, { psionics: normalizePsionics({ ...normalizePsionics(participant.psionics), ...patch }) });
   }
 
   function updateOnslaughtAttack(participant: SegmentedParticipant, attackId: string, damageExpression: string) {
@@ -3634,6 +3642,17 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
                       {([['hitTargetNumber','Unarmed Hit TN'],['hitAttackModifier','Hit ATK Mod'],['hitDefenseModifier','Hit DEF Mod'],['overbearAttackModifier','Overbear ATK'],['overbearDefenseModifier','Overbear DEF'],['grappleAttackModifier','Grapple ATK'],['grappleDefenseModifier','Grapple DEF'],['magicArmorBonus','Magic armour +']] as const).map(([key, label]) => <label key={key}>{label}<input type="number" value={participant.unarmedOverrides?.[key] ?? ""} onChange={(event) => updateUnarmedOverride(participant, key, event.target.value === "" ? null : Number(event.target.value))} /></label>)}
                       <label>Appendages<input type="number" min="1" value={participant.unarmedOverrides?.appendages ?? 2} onChange={(event) => updateUnarmedOverride(participant, "appendages", Math.max(1, Number(event.target.value) || 2))} /></label>
                       <fieldset><legend>Capabilities</legend>{([['cannotGrapple','Cannot Grapple'],['cannotBeGrappled','Cannot Be Grappled'],['cannotOverbear','Cannot Overbear'],['cannotBeOverborne','Cannot Be Overborne'],['immuneTemporaryDamage','Immune to Temporary Damage'],['fourLegged','Four-legged movement']] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={Boolean(participant.unarmedOverrides?.[key])} onChange={(event) => updateUnarmedOverride(participant, key, event.target.checked)} />{label}</label>)}</fieldset>
+                    </div></details>
+                    <details className="unarmed-override-editor psionics-setup-editor"><summary><span><b>PSIONICS</b><small>Attack/defense pools and known combat modes</small></span><i aria-hidden>▸</i></summary><div>
+                      {(() => { const psionics = normalizePsionics(participant.psionics); return <>
+                        <fieldset><legend>Psionic status</legend><label><input type="checkbox" checked={psionics.enabled} onChange={(event) => updatePsionics(participant, { enabled: event.target.checked })} />Psionic combatant</label>{psionics.enabled && <small>Mind Blank is automatic. Add other known modes below.</small>}</fieldset>
+                        <label>Attack points<input type="number" min="0" disabled={!psionics.enabled} value={psionics.currentAttackPoints} onChange={(event) => updatePsionics(participant, { currentAttackPoints: Number(event.target.value) || 0 })} /></label>
+                        <label>Attack maximum<input type="number" min="0" disabled={!psionics.enabled} value={psionics.maxAttackPoints} onChange={(event) => updatePsionics(participant, { maxAttackPoints: Number(event.target.value) || 0 })} /></label>
+                        <label>Defense points<input type="number" min="0" disabled={!psionics.enabled} value={psionics.currentDefensePoints} onChange={(event) => updatePsionics(participant, { currentDefensePoints: Number(event.target.value) || 0 })} /></label>
+                        <label>Defense maximum<input type="number" min="0" disabled={!psionics.enabled} value={psionics.maxDefensePoints} onChange={(event) => updatePsionics(participant, { maxDefensePoints: Number(event.target.value) || 0 })} /></label>
+                        <fieldset disabled={!psionics.enabled}><legend>Attack modes</legend>{psionicAttackModes.map((mode) => <label key={mode}><input type="checkbox" checked={psionics.attackModes.includes(mode)} onChange={(event) => updatePsionics(participant, { attackModes: event.target.checked ? [...psionics.attackModes, mode] : psionics.attackModes.filter((entry) => entry !== mode) })} />{mode}</label>)}</fieldset>
+                        <fieldset disabled={!psionics.enabled}><legend>Defense modes</legend>{psionicDefenseModes.map((mode) => mode === "Mind Blank" ? <label key={mode}><input type="checkbox" checked disabled />{mode} · automatic</label> : <label key={mode}><input type="checkbox" checked={psionics.defenseModes.includes(mode)} onChange={(event) => updatePsionics(participant, { defenseModes: event.target.checked ? [...psionics.defenseModes, mode] : psionics.defenseModes.filter((entry) => entry !== mode) })} />{mode}</label>)}</fieldset>
+                      </>; })()}
                     </div></details>
                   </div></details>}
                   {declarationHidden ? <div className="declaration-hidden-notice">{viewerRole === "gm" && participant.kind === "character" ? "Hidden for propriety, CTRL to show" : "Monster declaration hidden for players."}</div> : involuntaryAction || defeatedEnemy ? <div className="inactive-declaration-notice"><strong>{defeatedEnemy ? "Defeated" : hp.current <= -10 ? "Dead" : "Unconscious"}</strong><span>No declaration required. This combatant is automatically skipped while incapacitated; conditions remain until removed or expired.</span></div> : <>
