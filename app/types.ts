@@ -131,6 +131,7 @@ export type Character = {
   classLevels?: Record<string, number>;
   spellbook: SpellbookEntry[];
   spellSlots: PreparedSpellSlot[];
+  psionics?: PsionicsSetup;
 };
 
 export type CharacterFolder = {
@@ -497,7 +498,8 @@ export type SegmentedAction =
   | "hold"
   | "skip"
   | "inventory"
-  | "other";
+  | "other"
+  | "psionic-combat";
 
 export type CombatEventResolution = {
   eventKey: string;
@@ -554,12 +556,57 @@ export type PsionicDefenseMode = "Mind Blank" | "Thought Shield" | "Mental Barri
 
 export type PsionicsSetup = {
   enabled: boolean;
+  determination: "unresolved" | "ineligible" | "failed" | "rolled" | "forced" | "established";
+  potentialRoll: number | null;
+  potentialModifier: number;
+  psionicStrengthRoll: number | null;
+  psionicStrength: number;
+  originalPsionicAbility: number;
   currentAttackPoints: number;
   maxAttackPoints: number;
   currentDefensePoints: number;
   maxDefensePoints: number;
   attackModes: PsionicAttackMode[];
   defenseModes: PsionicDefenseMode[];
+  attackModeRoll: number | null;
+  defenseModeRoll: number | null;
+  disciplineRoll: number | null;
+  disciplines: PsionicDiscipline[];
+  forced?: boolean;
+};
+
+export type PsionicDiscipline = {
+  id: string;
+  name: string;
+  category: "minor" | "major";
+  masteryLevel: number;
+  acquiredLevel: number;
+  status: "reference" | "gm-adjudicated" | "incomplete-source";
+};
+
+export type PsionicCombatDeclaration = {
+  targetIds: string[];
+  attackMode: PsionicAttackMode | null;
+  range: "short" | "medium" | "long";
+  exchanges: number;
+  defenseOverrides: Record<string, PsionicDefenseMode | null>;
+  useArea: boolean;
+};
+
+export type PsionicExchangeLog = {
+  id: string;
+  round: number;
+  segment: number;
+  attackerId: string;
+  defenderId: string;
+  attackMode: PsionicAttackMode;
+  defenseMode: PsionicDefenseMode | "Defenseless" | null;
+  range: "short" | "medium" | "long";
+  attackCost: number;
+  defenseCost: number;
+  loss: number | null;
+  result: string | null;
+  rolls: number[];
 };
 
 export type GrappleHold = {
@@ -653,6 +700,7 @@ export type SegmentedParticipant = {
   large?: boolean;
   unarmedOverrides?: UnarmedOverrides;
   psionics?: PsionicsSetup;
+  psionicCombat?: PsionicCombatDeclaration | null;
 };
 
 export type MeleeEngagement = {
@@ -691,6 +739,7 @@ export type SegmentedInitiativeState = {
   engagements: MeleeEngagement[];
   grappleHolds: GrappleHold[];
   pendingUnarmed: PendingUnarmedResolution | null;
+  psionicExchanges?: PsionicExchangeLog[];
   effects: CombatEffect[];
   houseRuleHitDieDamage: boolean;
   magicalArmorWrestling: boolean;

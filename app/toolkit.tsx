@@ -122,6 +122,7 @@ function newCharacter(): Character {
     classLevels: {},
     spellbook: [],
     spellSlots: [],
+    psionics: normalizePsionics(null),
   };
   return deriveCharacterRecord(character);
 }
@@ -422,6 +423,7 @@ export default function Toolkit() {
             classLevels: character.classLevels && typeof character.classLevels === "object" ? Object.fromEntries(Object.entries(character.classLevels).map(([name, level]) => [name, Math.max(1, Math.floor(Number(level) || 1))])) : Object.fromEntries(String(character.className ?? "").split("/").filter(Boolean).map((name) => [name.trim(), Math.max(1, Math.floor(character.level ?? 1))])),
             spellbook: Array.isArray(character.spellbook) ? character.spellbook.map((spell) => { const storedCastingTime = Number(spell.castingTime); return { id: spell.id || id(), name: String(spell.name ?? ""), level: Math.max(1, Math.trunc(Number(spell.level) || 1)), castingTime: Number.isFinite(storedCastingTime) ? Math.max(0, Math.trunc(storedCastingTime)) : 1, text: String(spell.text ?? ""), trackId: spell.trackId, understood: spell.understood ?? true, acquisition: spell.acquisition, acquisitionClassLevel: spell.acquisitionClassLevel, maximumSpellLevel: spell.maximumSpellLevel }; }) : [],
             spellSlots: Array.isArray(character.spellSlots) ? character.spellSlots.map((slot) => ({ id: slot.id || id(), level: Math.max(1, Math.trunc(Number(slot.level) || 1)), spellbookId: typeof slot.spellbookId === "string" ? slot.spellbookId : null, expended: slot.expended ?? false, trackId: slot.trackId, preparedSpellName: typeof slot.preparedSpellName === "string" ? slot.preparedSpellName : null, castingTime: Number.isFinite(Number(slot.castingTime)) ? Math.max(0, Math.trunc(Number(slot.castingTime))) : undefined, overCapacity: Boolean(slot.overCapacity) })) : [],
+            psionics: normalizePsionics(character.psionics),
             inventoryLines: ensureInventoryLines(character.inventoryLines, stats[0]),
             stats,
           } as Character);
@@ -596,7 +598,6 @@ export default function Toolkit() {
             combatTallies: result.state?.segmentedInitiative?.combatTallies ?? {},
             lastCheers: Array.isArray(result.state?.segmentedInitiative?.lastCheers) ? result.state.segmentedInitiative.lastCheers : [],
           },
-          missionCharacterIds,
           dashboard: {
             ...emptyCampaign.dashboard,
             ...loadedDashboard,

@@ -44,6 +44,8 @@ import {
 } from "./osric-character-creation";
 import { ageAdjustmentsFor, constitutionHitPointBonusPerDie, rollCharacterHitPoints } from "./character-rules";
 import { abilitiesForAncestry } from "./ancestry-abilities";
+import { attackModesKnown, defenseModesKnown, disciplineCounts, majorDisciplineNames, minorDisciplineNames, normalizePsionics, psionicAttackModes, psionicDefenseModes, psionicPotentialModifier, psionicStrengthBonus, psionicsEligible, psionicDisciplineRules } from "./psionics";
+import { rollSecureDie } from "./random";
 
 const saveFields: Array<[keyof SaveBlock, string, string]> = [
   ["wands", "Aimed magical items", saveIcons.wands],
@@ -115,7 +117,7 @@ function statStrings(values: OsricStatline): Character["stats"] {
   return values.map(String) as Character["stats"];
 }
 
-function CharacterCreationLab({ character, updateCharacter, canEditGeneratedStats }: { character: Character; updateCharacter: (patch: Partial<Character>) => void; canEditGeneratedStats: boolean }) {
+function CharacterCreationLab({ character, updateCharacter, canEditGeneratedStats, gmOverride }: { character: Character; updateCharacter: (patch: Partial<Character>) => void; canEditGeneratedStats: boolean; gmOverride: boolean }) {
   const pool = character.statPool ?? EMPTY_STAT_POOL;
   const fallbackAllocation = character.className === "Unassigned" && pool.length === 6 ? statStrings(pool as OsricStatline) : character.stats;
   const raw = statlineFromStrings(character.rawStats ?? fallbackAllocation);
@@ -312,6 +314,7 @@ function CharacterCreationLab({ character, updateCharacter, canEditGeneratedStat
         </section>
       )}
       {classLocked && <section className="osric-class-declared osric-generation-results"><span><small>Class locked</small><b>{character.className}</b></span><div><p><b>Starting age:</b> {character.age || "—"}</p><p><b>Starting money:</b> {character.startingInventoryGranted ? "Added to inventory" : "Generating…"}</p></div><div className="osric-age-adjustments"><b>Age adjustments</b>{ageAdjustments.some(Boolean) ? ageAdjustments.flatMap((adjustment, index) => adjustment ? [<span key={OSRIC_ABILITIES[index]}>{OSRIC_ABILITIES[index]} {adjustment > 0 ? "+" : ""}{adjustment}</span>] : []) : <span>None</span>}</div>{character.race.toLowerCase() === "human" && <details><summary>Human dual-class options ({dualClasses.length})</summary>{dualClasses.length ? dualClasses.map((option) => <p key={option.to}>{option.from} → {option.to} · enter with {option.enterPrimes.join(" + ")} 17+</p>) : <p>No automatic dual-class path is available. The old class needs 15+ in every prime requisite and the new class needs 17+.</p>}</details>}</section>}
+      {classLocked && <PsionicsGeneration character={character} updateCharacter={updateCharacter} canEdit={canEditGeneratedStats} gmOverride={gmOverride} />}
       {classLocked && <section className="osric-hp-roll-step"><div className="osric-creation-step"><b>4</b><span><strong>Roll hit points</strong><small>{character.hitDice} · CON {character.stats[2]} gives {constitutionHpBonus > 0 ? "+" : ""}{constitutionHpBonus} per die · each adjusted die is at least 1 HP.</small></span></div><span className="osric-hp-result">{character.startingHpRolled ? <><small>Starting HP</small><b>{character.maxHp}</b></> : <small>Final character-setup step</small>}</span><button type="button" className="primary-button" disabled={!canEditGeneratedStats} onClick={rollStartingHp}>{character.startingHpRolled ? "Reroll HP" : "Roll starting HP"}</button></section>}
     </section>
   );
@@ -330,9 +333,42 @@ function AbilityStrip({ character }: { character: Character }) {
   );
 }
 
+function PsionicsGeneration({ character, updateCharacter, canEdit, gmOverride }: { character: Character; updateCharacter: (patch: Partial<Character>) => void; canEdit: boolean; gmOverride: boolean }) {
+  const base = statlineFromStrings(character.rawStats ?? character.stats);
+  const [intelligence, wisdom, charisma] = [base[3], base[4], base[5]];
+  const eligible = psionicsEligible(intelligence, wisdom, charisma);
+  const modifier = psionicPotentialModifier(intelligence, wisdom, charisma);
+  const psionics = normalizePsionics(character.psionics);
+  const modeLimit = psionics.attackModeRoll ? attackModesKnown(psionics.attackModeRoll) : 0;
+  const defenseLimit = psionics.defenseModeRoll ? defenseModesKnown(psionics.defenseModeRoll) : 0;
+  const disciplineLimit = psionics.disciplineRoll ? disciplineCounts(psionics.disciplineRoll) : { minor: 0, major: 0 };
+  const totalDisciplines = disciplineLimit.minor + disciplineLimit.major;
+  const disciplinesAvailableNow = Math.min(totalDisciplines, 1 + Math.floor(Math.max(0, character.level - 1) / 2));
+  const classText = character.className.toLowerCase();
+  const legalDiscipline = (name: string) => !(psionicDisciplineRules[name].restriction?.toLowerCase().startsWith("magic-user") && /magic-user/.test(classText)) && !(psionicDisciplineRules[name].restriction?.toLowerCase().startsWith("fighters") && /fighter/.test(classText)) && !(psionicDisciplineRules[name].restriction?.toLowerCase().startsWith("thieves") && /thief/.test(classText)) && !(psionicDisciplineRules[name].restriction?.toLowerCase().startsWith("clerics") && /cleric/.test(classText));
+  const set = (patch: Partial<typeof psionics>) => updateCharacter({ psionics: normalizePsionics({ ...psionics, ...patch }) });
+  const rollPotential = (forced = false) => {
+    if (!canEdit || (!eligible && !forced)) return;
+    const roll = rollSecureDie(100); const total = roll + modifier; const succeeds = forced || total >= 100;
+    if (!succeeds) return set({ enabled: false, determination: "failed", potentialRoll: roll, potentialModifier: modifier, forced: false });
+    const strengthRoll = rollSecureDie(100); const strength = strengthRoll + psionicStrengthBonus(intelligence, wisdom, charisma);
+    const attackModeRoll = rollSecureDie(100); const defenseModeRoll = rollSecureDie(100); const disciplineRoll = rollSecureDie(100);
+    set({ enabled: true, determination: forced ? "forced" : "rolled", forced, potentialRoll: roll, potentialModifier: modifier, psionicStrengthRoll: strengthRoll, psionicStrength: strength, originalPsionicAbility: strength * 2, currentAttackPoints: strength, maxAttackPoints: strength, currentDefensePoints: strength, maxDefensePoints: strength, attackModeRoll, defenseModeRoll, disciplineRoll, attackModes: [], defenseModes: ["Mind Blank"], disciplines: [] });
+  };
+  const chooseMode = (mode: typeof psionicAttackModes[number], checked: boolean) => { if (!checked && psionics.attackModes.includes(mode)) set({ attackModes: psionics.attackModes.filter((entry) => entry !== mode) }); else if (checked && psionics.attackModes.length < modeLimit) set({ attackModes: [...psionics.attackModes, mode] }); };
+  const chooseDefense = (mode: typeof psionicDefenseModes[number], checked: boolean) => { if (mode === "Mind Blank") return; const selected = psionics.defenseModes.filter((entry) => entry !== "Mind Blank"); if (!checked && selected.includes(mode)) set({ defenseModes: ["Mind Blank", ...selected.filter((entry) => entry !== mode)] }); else if (checked && selected.length < Math.max(0, defenseLimit - 1)) set({ defenseModes: ["Mind Blank", ...selected, mode] }); };
+  const chooseDiscipline = (name: string, category: "minor" | "major", checked: boolean) => { const selected = psionics.disciplines.filter((entry) => entry.category === category); const limit = category === "minor" ? disciplineLimit.minor : disciplineLimit.major; const total = psionics.disciplines.length; const minorsComplete = psionics.disciplines.filter((entry) => entry.category === "minor").length >= disciplineLimit.minor; if (!checked) return set({ disciplines: psionics.disciplines.filter((entry) => entry.name !== name) }); if (total >= disciplinesAvailableNow || selected.length >= limit || (category === "major" && !minorsComplete) || !legalDiscipline(name)) return; set({ disciplines: [...psionics.disciplines, { id: sharedId(), name, category, masteryLevel: character.level, acquiredLevel: character.level, status: psionicDisciplineRules[name].status }] }); };
+  if (!eligible && !gmOverride) return <section className="psionics-generation-step"><div className="osric-creation-step"><b>4</b><span><strong>Psionic potential</strong><small>Not eligible: unmodified INT, WIS, or CHA must be 16+.</small></span></div></section>;
+  return <section className="psionics-generation-step"><div className="osric-creation-step"><b>4</b><span><strong>Psionic potential</strong><small>INT {intelligence} · WIS {wisdom} · CHA {charisma} · potential modifier +{modifier}</small></span></div>
+    {psionics.determination === "unresolved" || psionics.determination === "ineligible" ? <div className="psionics-generation-actions"><button type="button" className="primary-button" disabled={!canEdit || !eligible} onClick={() => rollPotential(false)}>Roll potential</button>{gmOverride && <button type="button" onClick={() => rollPotential(true)}>Force psionic</button>}</div> : !psionics.enabled ? <div className="psionics-generation-result"><span><b>Not psionic</b><small>d100 {psionics.potentialRoll ?? "—"} + {psionics.potentialModifier} = {(psionics.potentialRoll ?? 0) + psionics.potentialModifier}</small></span>{gmOverride && <span><button type="button" onClick={() => set({ determination: "unresolved", potentialRoll: null })}>Reroll potential</button><button type="button" onClick={() => rollPotential(true)}>Force psionic</button></span>}</div> : <div className="psionics-generation-result"><span><b>{psionics.determination === "established" ? "Psionics established" : "Psionic"}</b><small>Strength {psionics.psionicStrength} · Ability {psionics.originalPsionicAbility} · AP/DP {psionics.currentAttackPoints}/{psionics.currentDefensePoints}</small></span>{gmOverride && <button type="button" onClick={() => set({ determination: "unresolved", enabled: false, forced: false })}>Reroll psionics</button>}</div>}
+    {psionics.enabled && <details className="psionics-generation-editor" open><summary>Psionic setup · choose {modeLimit} attack / {defenseLimit - 1} additional defense modes · {disciplinesAvailableNow} of {totalDisciplines} disciplines available at level {character.level}</summary><div><fieldset><legend>Attack modes</legend>{psionicAttackModes.map((mode) => <label key={mode}><input type="checkbox" checked={psionics.attackModes.includes(mode)} disabled={!canEdit || (!psionics.attackModes.includes(mode) && psionics.attackModes.length >= modeLimit)} onChange={(event) => chooseMode(mode, event.target.checked)} />{mode}</label>)}</fieldset><fieldset><legend>Defense modes</legend>{psionicDefenseModes.map((mode) => <label key={mode}><input type="checkbox" checked={psionics.defenseModes.includes(mode)} disabled={mode === "Mind Blank" || !canEdit || (!psionics.defenseModes.includes(mode) && psionics.defenseModes.filter((entry) => entry !== "Mind Blank").length >= defenseLimit - 1)} onChange={(event) => chooseDefense(mode, event.target.checked)} />{mode}{mode === "Mind Blank" ? " · automatic" : ""}</label>)}</fieldset><fieldset><legend>Minor disciplines</legend>{minorDisciplineNames.map((name) => <label key={name} title={psionicDisciplineRules[name].restriction}><input type="checkbox" checked={psionics.disciplines.some((entry) => entry.name === name)} disabled={!canEdit || !legalDiscipline(name) || (!psionics.disciplines.some((entry) => entry.name === name) && (psionics.disciplines.length >= disciplinesAvailableNow || psionics.disciplines.filter((entry) => entry.category === "minor").length >= disciplineLimit.minor))} onChange={(event) => chooseDiscipline(name, "minor", event.target.checked)} />{name}</label>)}</fieldset><fieldset><legend>Major disciplines</legend>{majorDisciplineNames.map((name) => <label key={name} title={psionicDisciplineRules[name].restriction}><input type="checkbox" checked={psionics.disciplines.some((entry) => entry.name === name)} disabled={!canEdit || !legalDiscipline(name) || (!psionics.disciplines.some((entry) => entry.name === name) && (psionics.disciplines.length >= disciplinesAvailableNow || psionics.disciplines.filter((entry) => entry.category === "minor").length < disciplineLimit.minor || psionics.disciplines.filter((entry) => entry.category === "major").length >= disciplineLimit.major))} onChange={(event) => chooseDiscipline(name, "major", event.target.checked)} />{name}</label>)}</fieldset><button type="button" className="primary-button" disabled={!canEdit || psionics.attackModes.length !== modeLimit || psionics.defenseModes.length !== defenseLimit || psionics.disciplines.length !== disciplinesAvailableNow} onClick={() => set({ determination: "established" })}>Establish psionics</button></div></details>}
+  </section>;
+}
+
 function CharacterSpellbook({ character, updateCharacter }: { character: Character; updateCharacter: (patch: Partial<Character>) => void }) {
   const tracks = getSpellcastingTracks(character);
-  if (!tracks.length) return null;
+  const psionics = normalizePsionics(character.psionics);
+  if (!tracks.length && !psionics.enabled) return null;
   const ready = character.spellSlots.filter((slot) => !slot.overCapacity && !slot.expended && (slot.spellbookId || slot.preparedSpellName)).length;
   const capacity = tracks.reduce((total, track) => total + track.slots.reduce((sum, value) => sum + value, 0), 0);
 
@@ -348,7 +384,7 @@ function CharacterSpellbook({ character, updateCharacter }: { character: Charact
 
   return (
     <details className="character-spell-panel">
-      <summary>Spells · {tracks.length} track{tracks.length === 1 ? "" : "s"} · {ready}/{capacity} ready</summary>
+      <summary>Spells{psionics.enabled ? " & psionics" : ""} · {tracks.length} track{tracks.length === 1 ? "" : "s"}{tracks.length ? ` · ${ready}/${capacity} ready` : ""}</summary>
       <div className="spell-track-stack">
         {tracks.map((track) => {
           const trackBook = character.spellbook.filter((entry) => entry.trackId === track.id);
@@ -386,6 +422,7 @@ function CharacterSpellbook({ character, updateCharacter }: { character: Charact
             </div>
           </section>;
         })}
+        {psionics.enabled && <section className="spell-track psionic-reference-track"><header className="spell-track-header"><span><b>Psionic disciplines</b><small>Strength {psionics.psionicStrength} · Ability {psionics.originalPsionicAbility} · AP {psionics.currentAttackPoints}/{psionics.maxAttackPoints} · DP {psionics.currentDefensePoints}/{psionics.maxDefensePoints}</small></span><span className="spell-capacity-tiles"><i>ATK <b>{psionics.attackModes.length}</b></i><i>DEF <b>{psionics.defenseModes.length}</b></i></span></header><div className="psionic-spell-reference"><section><h3>Modes</h3><p><b>Attack:</b> {psionics.attackModes.join(" · ") || "None"}</p><p><b>Defense:</b> {psionics.defenseModes.join(" · ") || "Mind Blank"}</p></section><section><h3>Disciplines</h3>{psionics.disciplines.length ? <div className="spellbook-list">{psionics.disciplines.map((discipline) => { const rule = psionicDisciplineRules[discipline.name]; return <article key={discipline.id}><div className="spellbook-row automated"><span className="spell-acquisition">{discipline.category === "minor" ? "Devotion" : "Science"}<small>Mastery {discipline.masteryLevel}</small></span><span><b>{discipline.name}</b><small>{rule.cost} · {rule.duration}{rule.restriction ? ` · ${rule.restriction}` : ""}</small></span><small>{rule.status === "incomplete-source" ? "GM procedure required" : rule.status === "gm-adjudicated" ? "GM adjudication" : rule.summary}</small></div></article>; })}</div> : <p className="compact-empty">No disciplines recorded.</p>}</section></div></section>}
       </div>
       <p className="spell-preparation-total">{spellPreparationHours(character)} total preparation hours</p>
     </details>
@@ -648,7 +685,7 @@ export default function CharacterSheetPanel(props: CharacterSheetPanelProps) {
 
                     {mode === "setup" && (
                       <section className="osric-setup-sheet">
-                        <CharacterCreationLab character={character} canEditGeneratedStats={canGenerateCharacters} updateCharacter={(patch) => update(character, patch)} />
+                        <CharacterCreationLab character={character} canEditGeneratedStats={canGenerateCharacters} gmOverride={canManageCampaigns} updateCharacter={(patch) => update(character, patch)} />
                         {character.className !== "Unassigned" && character.statAssignmentComplete !== false && <WeaponsConfig character={character} gmOverride={canManageCampaigns} updateCharacter={(patch) => update(character, patch)} />}
                         <div className="osric-setup-grid">
                           <fieldset><legend>Identity</legend><label>Player<input value={character.player} onChange={(event) => update(character, { player: event.target.value })} /></label><label>Alignment<select aria-label={character.name + " alignment"} value={character.alignment ?? "True Neutral"} onChange={(event) => update(character, { alignment: event.target.value as NonNullable<Character["alignment"]> })}>{PLAYER_ALIGNMENTS.map((alignment) => <option value={alignment} key={alignment}>{alignment}</option>)}</select></label><label>Class line<span className="osric-derived-field">{character.className}<small>Declared in Character creation above</small></span></label><div className="class-level-fields">{classComponents(character).map((component) => <label key={component.className}>{component.className} level<FormattedNumberInput ariaLabel={character.name + " " + component.className + " level"} value={component.level} min={1} onCommit={(level) => { const classLevels = { ...(character.classLevels ?? {}), [component.className]: Math.max(1, Math.floor(level)) }; update(character, { classLevels, level: Math.max(...Object.values(classLevels)) }); }} /></label>)}</div><div className="character-measurements"><label>Age<FormattedNumberInput ariaLabel={character.name + " age"} value={Number.parseInt(character.age, 10) || 0} min={0} readOnly={character.statAssignmentComplete !== false && !canManageCampaigns} onCommit={(age) => update(character, { age: String(age) })} /></label><label>Height<input value={character.height} onChange={(event) => update(character, { height: event.target.value })} /></label><label>Weight<input value={character.weight} onChange={(event) => update(character, { weight: event.target.value })} /></label></div></fieldset>
