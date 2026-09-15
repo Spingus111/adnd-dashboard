@@ -1573,6 +1573,17 @@ html[data-theme="dark"] .monster-onslaught-editor > div > label { border-color: 
 .unarmed-bottom-sheet > header span { display: grid; }
 .unarmed-bottom-sheet > header small { color: var(--accent); font-size: 10px; font-weight: 900; letter-spacing: .12em; }
 .unarmed-bottom-sheet > header button { min-width: 32px; min-height: 32px; }
+
+.psionic-combat-declaration { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 10px 0; border-color: color-mix(in srgb, var(--accent) 62%, var(--line)); background: color-mix(in srgb, var(--panel) 92%, var(--accent) 8%); }
+.psionic-combat-declaration > fieldset { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0; }
+.psionic-combat-declaration > fieldset label { display: inline-flex; align-items: center; gap: 6px; }
+.psionic-combat-declaration small { grid-column: 1 / -1; color: var(--muted); }
+.psionic-event-control { border-left: 3px solid var(--accent); }
+.psionic-combat-log { margin-top: 12px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--panel) 96%, var(--accent) 4%); }
+.psionic-combat-log > summary { display: flex; justify-content: space-between; padding: 9px 11px; font-weight: 800; color: var(--accent); }
+.psionic-combat-log > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; padding: 0 10px 10px; }
+.psionic-combat-log article { display: grid; gap: 3px; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
+.psionic-combat-log article span, .psionic-combat-log article small { color: var(--muted); }
 .unarmed-number-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; border-bottom: 1px solid var(--line); background: var(--soft); padding: 9px 12px; }
 .unarmed-number-tile { display: grid; min-width: 0; min-height: 42px; gap: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 7px 9px; cursor: help; }
 .unarmed-number-tile > span { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
@@ -1589,6 +1600,7 @@ html[data-theme="dark"] .monster-onslaught-editor > div > label { border-color: 
 @media (max-width: 620px) {
   .unarmed-override-editor > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .unarmed-bottom-sheet { right: 0; bottom: 0; left: 0; width: 100%; max-height: 78vh; border-width: 2px 0 0; border-radius: 14px 14px 0 0; }
+  .psionic-combat-declaration { grid-template-columns: 1fr; }
   .unarmed-number-strip { grid-template-columns: 1fr; }
   .unarmed-event-control { align-items: stretch; flex-direction: column; }
   .fending-list > div { grid-template-columns: minmax(0, 1fr) auto; }

@@ -9,6 +9,7 @@ import { carrierBagsForOwner, stoneToUnits } from "./inventory-management.ts";
 import { sharedId } from "./shared-id.ts";
 import { weaponRulesById } from "./weapon-rules.ts";
 import { normalizeUnarmedOverrides } from "./unarmed-combat.ts";
+import { normalizePsionics } from "./psionics.ts";
 import { rollSecureDie } from "./random.ts";
 
 export type StableNpcTemplate = {
@@ -70,6 +71,7 @@ function defaultsFor(templateId: StableNpcTemplateId, subtypeId: string | null):
     naturalSpeed: "normal" as const, onslaughtDamage: [] as string[], carryingCapacityStone: null,
     equipmentRefs: [] as StableNpc["equipmentRefs"],
     unarmedOverrides: normalizeUnarmedOverrides(null),
+    psionics: normalizePsionics(null),
   };
   if (templateId === "heavy-foot") return { ...human, currentHp: 1, maxHp: 1, armorClass: 14, armorProfile: "scale", weaponRulesIds: ["halberd", "short-sword"], equipmentRefs: [{ source: "equipment", id: "scale", quantity: 1 }, { source: "equipment", id: "halberd", quantity: 1 }, { source: "equipment", id: "short-sword", quantity: 1 }], activeWeaponRulesId: "halberd", damageExpression: "1d10" };
   if (templateId === "light-foot") return { ...human, currentHp: 1, maxHp: 1, armorClass: 14, armorProfile: "studded-shield", weaponRulesIds: ["spear", "hand-axe"], equipmentRefs: [{ source: "equipment", id: "studded", quantity: 1 }, { source: "equipment", id: "large-shield", quantity: 1 }, { source: "equipment", id: "spear", quantity: 1 }, { source: "equipment", id: "hand-axe", quantity: 1 }], activeWeaponRulesId: "spear", damageExpression: "1d6" };
@@ -165,7 +167,7 @@ export function stableNpcToParticipant(npc: StableNpc, joinedRound: number): Seg
     armorMode: npc.armorMode, armorProfile: npc.armorProfile, attackMode: npc.attackMode,
     naturalSpeed: npc.naturalSpeed, weaponRulesId: npc.activeWeaponRulesId, weaponRulesIds: npc.weaponRulesIds,
     manualHitModifier: "+0", manualDamageModifier: "+0", movementRate: npc.movementRate, size: npc.size, large: npc.size === "large",
-    temporaryDamage: 0, unarmedOverrides: normalizeUnarmedOverrides(npc.unarmedOverrides),
+    temporaryDamage: 0, unarmedOverrides: normalizeUnarmedOverrides(npc.unarmedOverrides), psionics: normalizePsionics(npc.psionics),
   };
 }
 
@@ -173,5 +175,5 @@ export function normalizeStableNpc(raw: StableNpc): StableNpc {
   const template = templateForStableNpc(raw.templateId);
   const number = Number(raw.token?.slice(template.prefix.length)) || 1;
   const fresh = createStableNpc(raw.campaignId || "default", template.id, raw.subtypeId ?? null, number);
-  return { ...fresh, ...raw, id: raw.id || fresh.id, campaignId: raw.campaignId || "default", token: raw.token || fresh.token, weaponRulesIds: Array.isArray(raw.weaponRulesIds) ? raw.weaponRulesIds : fresh.weaponRulesIds, equipmentRefs: Array.isArray(raw.equipmentRefs) ? raw.equipmentRefs : fresh.equipmentRefs, onslaughtDamage: Array.isArray(raw.onslaughtDamage) ? raw.onslaughtDamage : fresh.onslaughtDamage, unarmedOverrides: normalizeUnarmedOverrides(raw.unarmedOverrides ?? fresh.unarmedOverrides) };
+  return { ...fresh, ...raw, id: raw.id || fresh.id, campaignId: raw.campaignId || "default", token: raw.token || fresh.token, weaponRulesIds: Array.isArray(raw.weaponRulesIds) ? raw.weaponRulesIds : fresh.weaponRulesIds, equipmentRefs: Array.isArray(raw.equipmentRefs) ? raw.equipmentRefs : fresh.equipmentRefs, onslaughtDamage: Array.isArray(raw.onslaughtDamage) ? raw.onslaughtDamage : fresh.onslaughtDamage, unarmedOverrides: normalizeUnarmedOverrides(raw.unarmedOverrides ?? fresh.unarmedOverrides), psionics: normalizePsionics(raw.psionics ?? fresh.psionics) };
 }

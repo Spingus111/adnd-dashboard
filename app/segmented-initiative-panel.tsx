@@ -7,6 +7,7 @@ import { emptyCampaign, type
   CombatEffect,
   CombatEventResolution,
   InventoryStack,
+  PsionicDefenseMode,
   SaveBlock,
   SegmentedAction,
   SegmentedInitiativeState,
@@ -41,6 +42,7 @@ import { stableNpcToParticipant } from "./npc-stable";
 import { applyManualCombatModifier, parseManualCombatModifier } from "./combat-manual-modifier";
 import { participantIsConscious, pruneInvalidCombatTargets } from "./combat-targeting";
 import { attackerArmorTarget, controllingHoldId, defenderArmorModifier, grappleOutcome, grappleResultModifier, holdsForParticipant, normalizeUnarmedOverrides, overbearOutcome, overbearResultModifier, participantIsGrappling, pileOnApplies, unarmedHitBreakdown, unarmedHitSucceeds } from "./unarmed-combat";
+import { bestPsionicDefense, defenselessPsionicResult, normalizePsionics, normalPsionicLoss, psionicAttackCost, psionicAttackModes, psionicAttackRules, psionicBlastEffect, psionicBlastSaveTarget, psionicDefenseModes, psionicDefenseRules, psionicRangeAdjustedLoss } from "./psionics";
 import { getNonProficiencyPenalty, getSpellcastingTracks, getWeaponTrainingState, specialistClassLevel, specializedMissileRate } from "./osric-advancement";
 import { publishAttackControls, subscribeAttackRequests } from "./combat-attack-control";
 import { rollSecureDie, secureRandomFloat, secureRandomIndex } from "./random";
@@ -97,6 +99,7 @@ const actionEmojis: Record<SegmentedAction, string> = {
   "release-hold": "🔓",
   "small-weapon": "🗡️",
   "natural-attack": "🐾",
+  "psionic-combat": "🧠",
   "stand-up": "⬆️",
   unconscious: "💤",
   die: "🩸",
@@ -138,6 +141,7 @@ const actionLabels: Record<SegmentedAction, string> = {
   "release-hold": "Release hold",
   "small-weapon": "Short weapon attack",
   "natural-attack": "Natural attack",
+  "psionic-combat": "Psionic combat",
   "stand-up": "Stand up",
   unconscious: "Be unconscious",
   die: "Die (-1 HP)",
@@ -178,6 +182,7 @@ const actionHelp: Record<Exclude<SegmentedAction, "">, string> = {
   "release-hold": "Release the selected hold. The relationship ends if no other hold keeps it active.",
   "small-weapon": "Attack within a grapple using a dagger-length-or-smaller normal weapon in hand or Quick Access.",
   "natural-attack": "Use a natural claw, bite, or similar attack normally while Grappling.",
+  "psionic-combat": "Choose a psionic attack and target. The tracker creates one exchange per occupied segment, automatically maintains a legal defense, and records the matrix result.",
   "stand-up": "Use this action to remove Prone. Overborne prevents standing until that restriction ends.",
   unconscious: "No voluntary action. This is assigned automatically at 0 HP.",
   die: "Lose 1 HP automatically in the rolled segment. This is assigned at -1 through -9 HP.",
@@ -190,6 +195,7 @@ const actionHelp: Record<Exclude<SegmentedAction, "">, string> = {
 const actionGroups: Array<{ label: string; actions: Array<Exclude<SegmentedAction, "">> }> = [
   { label: "Common actions", actions: ["charge", "melee", "hand-2-melee", "two-weapon-melee", "missile", "close", "move", "parry-disengage", "spell"] },
   { label: "Unarmed", actions: ["brawl", "grapple", "overbear"] },
+  { label: "Psionics", actions: ["psionic-combat"] },
   { label: "Prone", actions: ["stand-up"] },
   { label: "Tactical & equipment", actions: ["close-hurl", "parry", "set-charge", "switch-weapon", "use-magic", "flee", "hold"] },
   { label: "Current grapple", actions: ["maintain-hold", "improve-hold", "release-hold", "small-weapon", "natural-attack"] },
@@ -215,6 +221,7 @@ const actionPages: Partial<Record<Exclude<SegmentedAction, "">, string>> = {
   "set-charge": "p.95",
   spell: "p.96",
   grapple: "p.102",
+  "psionic-combat": "Psionics Appendix pp.8–15",
   brawl: "p.102",
   overbear: "p.102",
   "maintain-hold": "p.102",
@@ -426,6 +433,7 @@ function blankParticipant(kind: "enemy" | "npc", markerNumber = 1, joinedRound =
     size: "medium",
     large: false,
     unarmedOverrides: normalizeUnarmedOverrides(null),
+    psionics: normalizePsionics(null),
   };
 }
 
@@ -439,6 +447,18 @@ function participantEvents(participant: SegmentedParticipant, fighterLevel = 1, 
   if (participant.action === "skip" || participant.action === "inventory") return [];
 
   const common = { participantId: participant.id };
+  if (participant.action === "psionic-combat") {
+    const exchanges = Math.max(1, Math.min(10, participant.psionicCombat?.exchanges ?? 1, 11 - participant.scheduledSegment));
+    return Array.from({ length: exchanges }, (_, index) => ({
+      ...common,
+      key: `psionic-exchange-${index + 1}`,
+      round: participant.declarationRound as number,
+      segment: participant.scheduledSegment! + index,
+      targetId: participant.psionicCombat?.targetIds[0] ?? participant.targetId ?? undefined,
+      label: `Psionic exchange ${index + 1} of ${exchanges}`,
+      emoji: "🧠",
+    }));
+  }
   if (participant.action === "charge") {
     return [
       { ...common, key: "charge-move", round: participant.declarationRound, segment: 1, label: "Charge movement", emoji: "🐎" },
@@ -667,6 +687,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
           weaponRulesIds: npc.weaponRulesIds,
           movementRate: npc.movementRate,
           unarmedOverrides: normalizeUnarmedOverrides(npc.unarmedOverrides),
+          psionics: normalizePsionics(npc.psionics),
           size: npc.size,
           large: npc.size === "large",
         };
@@ -956,11 +977,15 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
         ...(patch.weaponRulesIds !== undefined ? { weaponRulesIds: patch.weaponRulesIds } : {}),
         ...(patch.movementRate !== undefined ? { movementRate: patch.movementRate } : {}),
         ...(patch.unarmedOverrides !== undefined ? { unarmedOverrides: patch.unarmedOverrides } : {}),
+        ...(patch.psionics !== undefined ? { psionics: patch.psionics } : {}),
         ...(patch.size !== undefined ? { size: patch.size === "tiny" || patch.size === "small" ? "small" as const : patch.size === "large" || patch.size === "huge" || patch.size === "gargantuan" ? "large" as const : "medium" as const } : {}),
         ...(patch.large !== undefined ? { size: patch.large ? "large" as const : "medium" as const } : {}),
       } : null;
       return {
         ...current,
+        characters: participant?.characterId && patch.psionics !== undefined
+          ? current.characters.map((character) => character.id === participant.characterId ? { ...character, psionics: normalizePsionics(patch.psionics) } : character)
+          : current.characters,
         stableNpcs: participant?.stableNpcId && stableNpcPatch ? current.stableNpcs.map((npc) => npc.id === participant.stableNpcId ? { ...npc, ...stableNpcPatch } : npc) : current.stableNpcs,
         segmentedInitiative: {
           ...current.segmentedInitiative,
@@ -972,6 +997,10 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
 
   function updateUnarmedOverride<K extends keyof NonNullable<SegmentedParticipant["unarmedOverrides"]>>(participant: SegmentedParticipant, key: K, value: NonNullable<SegmentedParticipant["unarmedOverrides"]>[K]) {
     updateParticipant(participant.id, { unarmedOverrides: { ...normalizeUnarmedOverrides(participant.unarmedOverrides), [key]: value } });
+  }
+
+  function updatePsionics(participant: SegmentedParticipant, patch: Partial<NonNullable<SegmentedParticipant["psionics"]>>) {
+    updateParticipant(participant.id, { psionics: normalizePsionics({ ...normalizePsionics(participant.psionics), ...patch }) });
   }
 
   function updateOnslaughtAttack(participant: SegmentedParticipant, attackId: string, damageExpression: string) {
@@ -1010,6 +1039,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
         maxHp: character.maxHp,
         armorClass: character.armorClass,
         equippedWeaponId: character.equippedWeaponId,
+        psionics: normalizePsionics(character.psionics),
       }],
     });
   }
@@ -1028,6 +1058,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
       maxHp: character.maxHp,
       armorClass: character.armorClass,
       equippedWeaponId: character.equippedWeaponId,
+      psionics: normalizePsionics(character.psionics),
     }));
     updateTracker({ participants: [...tracker.participants, ...additions] });
   }
@@ -1417,6 +1448,9 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
     if (activeConditionNames.has("Prone") && !proneAllowedActions.has(action)) return;
     if (action === "stand-up" && (!activeConditionNames.has("Prone") || activeConditionNames.has("Overborne"))) return;
     const character = participantCharacter(participant);
+    const psionics = normalizePsionics(participant.psionics);
+    if (action === "psionic-combat" && (!psionics.enabled || psionics.attackModes.length === 0)) return;
+    if (participant.action === "psionic-combat" && participant.psionicCombat && action !== "psionic-combat") return;
     if ((action === "hand-2-melee" || action === "two-weapon-melee") && (!character || !twoWeaponLoadout(character).eligible)) return;
     if (action === "grapple" && character && !canGrapple(character)) return;
     if (action === "small-weapon" && character && !hasDaggerLengthWeaponInHandOrQuick(character)) return;
@@ -1459,12 +1493,20 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
             targetId: automatic,
             targetIds: action === "heroic-assault" && automatic ? [automatic] : [],
             areaOfEffect: false,
+            psionicCombat: action === "psionic-combat" ? {
+              targetIds: [],
+              attackMode: psionics.attackModes[0] ?? "Mind Thrust",
+              range: "short" as const,
+              exchanges: 1,
+              defenseOverrides: {},
+              useArea: false,
+            } : null,
             preparedSpellSlotId: null,
             equippedWeaponId: selectedShortWeaponId ? `inventory:${selectedShortWeaponId}` : actionWeapon?.id ?? closeWeapon?.id ?? entry.equippedWeaponId,
             pendingWeaponId: action === "switch-weapon" || action === "close" ? npcBackupWeaponId ?? closeWeapon?.id ?? (currentHandOne ? `inventory:${currentHandOne.id}` : null) : null,
             pendingOffhandWeaponId: action === "switch-weapon" || action === "close" ? currentHandTwo ? `inventory:${currentHandTwo.id}` : null : null,
             statusNote: closeWeapon ? `${closeWeapon.name} readied automatically for closing into melee` : "",
-            ready: action !== "" && (action !== "heroic-assault" || Boolean(automatic)),
+            ready: action !== "" && action !== "psionic-combat" && (action !== "heroic-assault" || Boolean(automatic)),
           } : entry),
         },
       };
@@ -1534,6 +1576,16 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
     if ((participant.kind === "enemy" && hp <= 0)
       || ((participant.kind === "character" || participant.kind === "npc") && hp <= 0)) return "";
     if (!participant.action) return `${participant.name} needs a declared action.`;
+    if (participant.action === "psionic-combat") {
+      const psionics = normalizePsionics(participant.psionics);
+      const setup = participant.psionicCombat;
+      if (!psionics.enabled || !setup || !setup.attackMode) return `${participant.name} has no psionic combat setup.`;
+      if (!psionics.attackModes.includes(setup.attackMode)) return `${participant.name} does not know ${setup.attackMode}.`;
+      if (!setup.targetIds.length) return `${participant.name} needs at least one psionic target.`;
+      if (!targetsForAction(participant, "psionic-combat").some((target) => target.id === setup.targetIds[0])) return `${participant.name}'s psionic target is no longer valid.`;
+      if (setup.attackMode === "Psychic Crush" && !psionics.defenseModes.includes("Thought Shield")) return `${participant.name} needs Thought Shield to use Psychic Crush.`;
+      if (psionics.currentAttackPoints < psionicAttackCost(setup.attackMode, setup.range)) return `${participant.name} lacks Attack Points for ${setup.attackMode}.`;
+    }
     const activeConditions = conditionsForParticipant(participant).filter((effect) => effect.remainingRounds > 0);
     const conditionRule = combatConditionRule(activeConditions);
     const conditionNames = activeConditions.map((effect) => effect.name).join(", ");
@@ -3371,6 +3423,81 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
     </div>;
   }
 
+  function participantMentalTotal(participant: SegmentedParticipant) {
+    const character = participantCharacter(participant);
+    return character ? Math.max(0, Number(character.stats[3]) || 0) + Math.max(0, Number(character.stats[4]) || 0) : 20;
+  }
+
+  function psionicEffect(result: string, target: SegmentedParticipant, attackerName: string) {
+    const duration = result === "Sleep" ? rollSecureDie(4) * 5 : result === "Stun" || result === "Confused" || result === "Panicked" || result === "Enraged" ? rollSecureDie(4) * 2 : result === "Coma" ? rollSecureDie(4) * 7 * 24 * 60 : 0;
+    const description = result === "Death" || result === "Killed" ? "Psionic fatality." : result === "Coma" ? "Cannot be awakened; duration is tracked in minutes." : result === "Feebleminded" ? "Persists until cure; cannot attack or defend." : `${result} caused by ${attackerName}'s psionic attack.`;
+    return { id: id(), name: result === "Killed" ? "Dead" : result, target: target.name, participantId: target.id, description, remainingRounds: duration || 9999 } satisfies CombatEffect;
+  }
+
+  function resolvePsionicExchange(participant: SegmentedParticipant, event: SegmentEvent) {
+    if (!authorizeCombatant(participant.id)) return;
+    const setup = participant.psionicCombat;
+    const attackMode = setup?.attackMode;
+    if (!setup || !attackMode || participant.completedEvents.includes(`psionic:${resolutionKey(event)}`)) return;
+    const attackerPsionics = normalizePsionics(participant.psionics);
+    const targets = tracker.participants.filter((entry) => setup.targetIds.includes(entry.id) && entry.side !== participant.side);
+    if (!attackerPsionics.enabled || !targets.length) return;
+    const cost = psionicAttackCost(attackMode, setup.range);
+    if (attackerPsionics.currentAttackPoints < cost) return;
+    const attackerTotal = attackerPsionics.currentAttackPoints + attackerPsionics.currentDefensePoints;
+    const matrixTotal = setup.range === "long" ? Math.max(1, attackerTotal - 25) : attackerTotal;
+    setCampaign((current) => {
+      const currentAttacker = current.segmentedInitiative.participants.find((entry) => entry.id === participant.id);
+      if (!currentAttacker) return current;
+      const currentAttackPsionics = normalizePsionics(currentAttacker.psionics);
+      const effects: CombatEffect[] = [...current.segmentedInitiative.effects];
+      const logs = [...(current.segmentedInitiative.psionicExchanges ?? [])];
+      const participants = current.segmentedInitiative.participants.map((entry) => {
+        if (entry.id === currentAttacker.id) return { ...entry, psionics: normalizePsionics({ ...currentAttackPsionics, currentAttackPoints: currentAttackPsionics.currentAttackPoints - cost }), completedEvents: Array.from(new Set([...entry.completedEvents, `psionic:${resolutionKey(event)}`])), statusNote: `Psionic exchange ${event.segment} resolved` };
+        if (!targets.some((target) => target.id === entry.id)) return entry;
+        const defenderPsionics = normalizePsionics(entry.psionics);
+        if (!defenderPsionics.enabled) {
+          if (attackMode !== "Psionic Blast" || currentAttackPsionics.currentAttackPoints < 100) return entry;
+          const targetNumber = psionicBlastSaveTarget(participantMentalTotal(entry), setup.range);
+          const saveRoll = rollSecureDie(20);
+          const success = saveRoll >= targetNumber;
+          const effectRoll = success ? null : rollSecureDie(100);
+          const result = effectRoll === null ? "Saved" : psionicBlastEffect(participantMentalTotal(entry), effectRoll);
+          if (!success) effects.push(psionicEffect(result, entry, currentAttacker.name));
+          logs.push({ id: id(), round: current.segmentedInitiative.round, segment: event.segment, attackerId: currentAttacker.id, defenderId: entry.id, attackMode, defenseMode: null, range: setup.range, attackCost: cost, defenseCost: 0, loss: null, result, rolls: effectRoll === null ? [saveRoll] : [saveRoll, effectRoll] });
+          return entry;
+        }
+        const override = setup.defenseOverrides[entry.id];
+        const defense = override && defenderPsionics.defenseModes.includes(override) ? override : bestPsionicDefense(defenderPsionics, matrixTotal, attackMode);
+        const defenseCost = psionicDefenseRules[defense].cost;
+        const raw = defenderPsionics.currentDefensePoints <= 0
+          ? defenselessPsionicResult(currentAttackPsionics.currentAttackPoints, defenderPsionics.originalPsionicAbility, attackMode)
+          : normalPsionicLoss(matrixTotal, attackMode, defense).loss;
+        const instantDeath = defenderPsionics.currentDefensePoints <= 0 || attackMode === "Psychic Crush";
+        const resultRoll = instantDeath ? rollSecureDie(100) : null;
+        const adjusted = typeof raw === "number" ? psionicRangeAdjustedLoss(raw, setup.range, attackerTotal) : raw;
+        const killed = attackMode === "Psychic Crush" && typeof raw === "number" && resultRoll !== null && resultRoll <= raw;
+        const nextDefense = Math.max(0, defenderPsionics.currentDefensePoints - defenseCost - (typeof adjusted === "number" ? adjusted : 0));
+        const nextAttack = defenderPsionics.currentAttackPoints;
+        const hpLoss = defenderPsionics.currentDefensePoints <= 0 && typeof adjusted === "number" ? Math.max(0, adjusted - nextAttack) : 0;
+        const finalAttack = defenderPsionics.currentDefensePoints <= 0 && typeof adjusted === "number" ? Math.max(0, nextAttack - adjusted) : nextAttack;
+        const result = killed ? "Dead" : typeof adjusted === "string" ? adjusted : `${adjusted} DP loss`;
+        if (killed || typeof adjusted === "string") effects.push(psionicEffect(result, entry, currentAttacker.name));
+        logs.push({ id: id(), round: current.segmentedInitiative.round, segment: event.segment, attackerId: currentAttacker.id, defenderId: entry.id, attackMode, defenseMode: defense, range: setup.range, attackCost: cost, defenseCost, loss: typeof adjusted === "number" ? adjusted : null, result, rolls: resultRoll === null ? [] : [resultRoll] });
+        return { ...entry, currentHp: hpLoss ? entry.currentHp - hpLoss : entry.currentHp, psionics: normalizePsionics({ ...defenderPsionics, currentAttackPoints: finalAttack, currentDefensePoints: nextDefense }) };
+      });
+      const characters = current.characters.map((character) => {
+        const linked = participants.find((entry) => entry.characterId === character.id);
+        return linked?.psionics ? { ...character, psionics: normalizePsionics(linked.psionics), currentHp: linked.currentHp } : character;
+      });
+      const stableNpcs = current.stableNpcs.map((npc) => {
+        const linked = participants.find((entry) => entry.stableNpcId === npc.id);
+        return linked?.psionics ? { ...npc, psionics: normalizePsionics(linked.psionics), currentHp: linked.currentHp } : npc;
+      });
+      return { ...current, characters, stableNpcs, segmentedInitiative: { ...current.segmentedInitiative, participants, effects, psionicExchanges: logs.slice(-250) } };
+    });
+  }
+
   function eventAdjudication(participant: SegmentedParticipant, event: SegmentEvent) {
     const key = resolutionKey(event);
     const resolution = participant.resolutions[key] ?? defaultResolution(event, participant);
@@ -3385,6 +3512,11 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
     const restricted = !canControlCombatant(combatIdentity, participant) && !controlHeld;
     const closedOut = meleeActions.has(participant.action) && target && tracker.participants.some((closer) => closer.action === "close" && closer.targetId === participant.id && (event.targetId ?? participant.targetId) === closer.id && closer.declarationRound === event.round);
     if (closedOut) return <div className="event-adjudication close-lockout-notice"><strong>Closed into combat</strong><span>{target.name} closed with {participant.name}; this declared melee attack cannot be made against the closer this turn.</span></div>;
+    if (participant.action === "psionic-combat") {
+      const setup = participant.psionicCombat;
+      const complete = participant.completedEvents.includes(`psionic:${resolutionKey(event)}`);
+      return <div className={`event-adjudication psionic-event-control ${restricted ? "control-restricted" : ""}`}><span>{setup ? `${setup.attackMode} · ${setup.range} range · ${setup.targetIds.length} target${setup.targetIds.length === 1 ? "" : "s"}` : "Psionic setup incomplete"}</span><button className="primary-button" disabled={!setup || complete} onClick={() => resolvePsionicExchange(participant, event)}>{complete ? "Exchange resolved" : `Resolve exchange ${event.segment}`}</button></div>;
+    }
     if (participant.action === "stand-up") {
       const activeConditions = conditionsForParticipant(participant).filter((effect) => effect.remainingRounds > 0);
       const prone = activeConditions.some((effect) => effect.name === "Prone");
@@ -3505,6 +3637,8 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
               }) : [];
               const handContents = character ? combatHandContents(character) : null;
               const specialized = Boolean(character && getWeaponTrainingState(character, currentWeapon).specialized);
+              const specializedMeleeHeld = Boolean(specialized && currentWeapon?.category === "melee");
+              const specializedRangedHeld = Boolean(specialized && currentWeapon && weaponCanMakeMissileAttack(currentWeapon));
               const actionHitBonus = (participant.action === "charge" ? 2 : 0) + (specialized ? 1 : 0);
               const actionDamageBonus = specialized ? 2 : 0;
               const totalAttackBonus = character
@@ -3542,7 +3676,8 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
                   && (action !== "grapple" || participant.kind !== "character" || !character || canGrapple(character))
                   && (action !== "overbear" || !participant.unarmedOverrides?.cannotOverbear)
                   && (action !== "small-weapon" || participant.kind !== "character" || !character || hasDaggerLengthWeaponInHandOrQuick(character))
-                  && (action !== "natural-attack" || participant.attackMode === "natural")),
+                  && (action !== "natural-attack" || participant.attackMode === "natural")
+                  && (action !== "psionic-combat" || (normalizePsionics(participant.psionics).enabled && normalizePsionics(participant.psionics).attackModes.length > 0))),
               })).filter((group) => group.actions.length);
               const accentStyle = character ? characterTileStyle(character.tileColor) : undefined;
               const declarationHidden = combatDeclarationIsHidden({
@@ -3635,6 +3770,17 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
                       <label>Appendages<input type="number" min="1" value={participant.unarmedOverrides?.appendages ?? 2} onChange={(event) => updateUnarmedOverride(participant, "appendages", Math.max(1, Number(event.target.value) || 2))} /></label>
                       <fieldset><legend>Capabilities</legend>{([['cannotGrapple','Cannot Grapple'],['cannotBeGrappled','Cannot Be Grappled'],['cannotOverbear','Cannot Overbear'],['cannotBeOverborne','Cannot Be Overborne'],['immuneTemporaryDamage','Immune to Temporary Damage'],['fourLegged','Four-legged movement']] as const).map(([key, label]) => <label key={key}><input type="checkbox" checked={Boolean(participant.unarmedOverrides?.[key])} onChange={(event) => updateUnarmedOverride(participant, key, event.target.checked)} />{label}</label>)}</fieldset>
                     </div></details>
+                    <details className="unarmed-override-editor psionics-setup-editor"><summary><span><b>PSIONICS</b><small>Attack/defense pools and known combat modes</small></span><i aria-hidden>▸</i></summary><div>
+                      {(() => { const psionics = normalizePsionics(participant.psionics); return <>
+                        <fieldset><legend>Psionic status</legend><label><input type="checkbox" checked={psionics.enabled} onChange={(event) => updatePsionics(participant, { enabled: event.target.checked })} />Psionic combatant</label>{psionics.enabled && <small>Mind Blank is automatic. Add other known modes below.</small>}</fieldset>
+                        <label>Attack points<input type="number" min="0" disabled={!psionics.enabled} value={psionics.currentAttackPoints} onChange={(event) => updatePsionics(participant, { currentAttackPoints: Number(event.target.value) || 0 })} /></label>
+                        <label>Attack maximum<input type="number" min="0" disabled={!psionics.enabled} value={psionics.maxAttackPoints} onChange={(event) => updatePsionics(participant, { maxAttackPoints: Number(event.target.value) || 0 })} /></label>
+                        <label>Defense points<input type="number" min="0" disabled={!psionics.enabled} value={psionics.currentDefensePoints} onChange={(event) => updatePsionics(participant, { currentDefensePoints: Number(event.target.value) || 0 })} /></label>
+                        <label>Defense maximum<input type="number" min="0" disabled={!psionics.enabled} value={psionics.maxDefensePoints} onChange={(event) => updatePsionics(participant, { maxDefensePoints: Number(event.target.value) || 0 })} /></label>
+                        <fieldset disabled={!psionics.enabled}><legend>Attack modes</legend>{psionicAttackModes.map((mode) => <label key={mode}><input type="checkbox" checked={psionics.attackModes.includes(mode)} onChange={(event) => updatePsionics(participant, { attackModes: event.target.checked ? [...psionics.attackModes, mode] : psionics.attackModes.filter((entry) => entry !== mode) })} />{mode}</label>)}</fieldset>
+                        <fieldset disabled={!psionics.enabled}><legend>Defense modes</legend>{psionicDefenseModes.map((mode) => mode === "Mind Blank" ? <label key={mode}><input type="checkbox" checked disabled />{mode} · automatic</label> : <label key={mode}><input type="checkbox" checked={psionics.defenseModes.includes(mode)} onChange={(event) => updatePsionics(participant, { defenseModes: event.target.checked ? [...psionics.defenseModes, mode] : psionics.defenseModes.filter((entry) => entry !== mode) })} />{mode}</label>)}</fieldset>
+                      </>; })()}
+                    </div></details>
                   </div></details>}
                   {declarationHidden ? <div className="declaration-hidden-notice">{viewerRole === "gm" && participant.kind === "character" ? "Hidden for propriety, CTRL to show" : "Monster declaration hidden for players."}</div> : involuntaryAction || defeatedEnemy ? <div className="inactive-declaration-notice"><strong>{defeatedEnemy ? "Defeated" : hp.current <= -10 ? "Dead" : "Unconscious"}</strong><span>No declaration required. This combatant is automatically skipped while incapacitated; conditions remain until removed or expired.</span></div> : <>
                   <div className="declaration-controls">
@@ -3645,6 +3791,19 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
                     }}><option value="">◆ Select declared action</option>{(participant.action === "unconscious" || participant.action === "die") && <option value={participant.action}>{actionEmojis[participant.action]} {actionLabels[participant.action]}</option>}{availableActionGroups.map((group) => <optgroup label={group.label} key={group.label}>{group.actions.filter((action) => (action !== "spell-like-effect" || participant.kind === "enemy") && (action !== "spell" || !character || hasFreeHand(character) || preparedSpells(character).some((spell) => getSpellcastingTracks(character).find((track) => track.id === spell.trackId)?.tradition === "divine")) && ((action !== "hand-2-melee" && action !== "two-weapon-melee") || Boolean(character && twoWeaponLoadout(character).eligible))).map((action) => <option value={action} disabled={missileDeclarationBlocked(participant, action) || (action === "stand-up" && participantIsOverborne)} key={action}>{actionEmojis[action]} {actionLabels[action]}{missileDeclarationBlocked(participant, action) ? " · engaged" : action === "stand-up" && participantIsOverborne ? " · blocked by Overborne" : ""}</option>)}</optgroup>)}</select></label>
                     {hasSingleTargetControl && <label className="combat-target-field declaration-target-field">Target{(participant.action === "spell" || participant.action === "use-magic" || rangedActions.has(participant.action)) && <small> optional</small>}<select value={participant.targetId ?? ""} disabled={locked} onChange={(event) => updateParticipant(participant.id, { targetId: event.target.value || null, targetIds: [], ready: true })}><option value="">{rangedActions.has(participant.action) ? "No declared target · determine randomly in melee" : (attackActions.has(participant.action) || participant.action === "close" || participant.action === "parry-disengage") ? "Select target" : "No target"}</option>{validTargets.map((target) => <option value={target.id} key={target.id}>{targetOptionLabel(target)} · AC {effectiveArmorClass(target)}{target.kind === "enemy" && !viewerHasGmPermissions ? "" : ` · HP ${participantHp(target).current}/${participantHp(target).maximum}`}</option>)}</select><div className="target-shortcuts">{validTargets.slice(0, 10).map((target) => <button type="button" className={participant.targetId === target.id ? "active" : ""} disabled={locked} onClick={() => updateParticipant(participant.id, { targetId: target.id, targetIds: [], ready: true })} key={target.id}>{targetOptionLabel(target)}</button>)}</div></label>}
                     {(participant.action === "maintain-hold" || participant.action === "release-hold") && <label className="combat-target-field">Hold<select value={participant.actionDetail} disabled={locked} onChange={(event) => { const hold = tracker.grappleHolds.find((entry) => entry.id === event.target.value); updateParticipant(participant.id, { actionDetail: event.target.value, targetId: hold?.defenderId ?? null, ready: Boolean(hold) }); }}><option value="">Select hold</option>{tracker.grappleHolds.filter((hold) => hold.attackerId === participant.id).map((hold) => <option value={hold.id} key={hold.id}>{hold.label} {hold.result} · {tracker.participants.find((entry) => entry.id === hold.defenderId)?.name}</option>)}</select></label>}
+                    {participant.action === "psionic-combat" && participant.psionicCombat && (() => {
+                      const psionic = normalizePsionics(participant.psionics);
+                      const setup = participant.psionicCombat;
+                      const targets = targetsForAction(participant, "psionic-combat").filter((target) => target.side !== participant.side);
+                      return <fieldset className="psionic-combat-declaration"><legend>Psionic exchange</legend>
+                        <label>Attack mode<select value={setup.attackMode ?? ""} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, attackMode: event.target.value as typeof psionic.attackModes[number], useArea: event.target.value === "Id Insinuation" || event.target.value === "Psionic Blast" } })}>{psionic.attackModes.map((mode) => <option value={mode} key={mode}>{mode} · {psionicAttackRules[mode].cost} AP · {psionicAttackRules[mode].area}</option>)}</select></label>
+                        <label>Range<select value={setup.range} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, range: event.target.value as typeof setup.range } })}><option value="short">Short</option><option value="medium">Medium · 20% loss</option><option value="long" disabled={setup.attackMode === "Psychic Crush"}>Long · lower band / 20% loss</option></select></label>
+                        <label>Exchanges<input type="number" min="1" max="10" value={setup.exchanges} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, exchanges: Math.max(1, Math.min(10, Number(event.target.value) || 1)) } })} /></label>
+                        <fieldset><legend>{setup.useArea ? "Area targets" : "Target"}</legend>{targets.map((target) => <label key={target.id}><input type={setup.useArea ? "checkbox" : "radio"} name={`psionic-target-${participant.id}`} checked={setup.targetIds.includes(target.id)} disabled={locked} onChange={(event) => { const targetIds = setup.useArea ? (event.target.checked ? [...setup.targetIds, target.id] : setup.targetIds.filter((id) => id !== target.id)) : [target.id]; updateParticipant(participant.id, { psionicCombat: { ...setup, targetIds }, targetId: targetIds[0] ?? null, ready: targetIds.length > 0 }); }} />{targetOptionLabel(target)}{normalizePsionics(target.psionics).enabled ? " · psionic" : " · non-psionic"}</label>)}</fieldset>
+                        {viewerHasGmPermissions && setup.targetIds.map((targetId) => { const target = tracker.participants.find((entry) => entry.id === targetId); const targetPsionic = normalizePsionics(target?.psionics); return target && targetPsionic.enabled ? <label key={`defense-${targetId}`}>Defense · {target.name}<select value={setup.defenseOverrides[targetId] ?? ""} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, defenseOverrides: { ...setup.defenseOverrides, [targetId]: event.target.value ? event.target.value as PsionicDefenseMode : null } } })}><option value="">Auto · best available</option>{targetPsionic.defenseModes.map((mode) => <option value={mode} key={mode}>{mode} · {psionicDefenseRules[mode].cost} DP</option>)}</select></label> : null; })}
+                        <small>One exchange is added for each occupied segment. Defenses default to the matrix-favorable known mode; GM may override at resolution.</small>
+                      </fieldset>;
+                    })()}
                     {tracker.phase === "declaration" && <details className="participant-condition-picker">
                       <summary>Conditions{participantConditions.length ? ` · ${participantConditions.length}` : ""}</summary>
                       <div>
@@ -3748,6 +3907,8 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
         </details>}
 
         <details className="action-guide"><summary>Action explanations</summary><div>{(Object.keys(actionHelp) as Array<Exclude<SegmentedAction, "">>).map((action) => <article key={action}><span className="emoji-glyph compact">{actionEmojis[action]}</span><span><strong>{actionLabels[action]}</strong><small>{actionHelp[action]}</small>{actionPages[action] && <em>{actionPages[action]}</em>}</span></article>)}</div></details>
+
+        {(tracker.psionicExchanges?.length ?? 0) > 0 && <details className="psionic-combat-log"><summary>Psionic combat log <span>{tracker.psionicExchanges?.length}</span></summary><div>{[...(tracker.psionicExchanges ?? [])].slice(-20).reverse().map((entry) => { const attacker = tracker.participants.find((participant) => participant.id === entry.attackerId); const defender = tracker.participants.find((participant) => participant.id === entry.defenderId); return <article key={entry.id}><strong>S{entry.segment} · {attacker?.name ?? "Unknown"} → {defender?.name ?? "Unknown"}</strong><span>{entry.attackMode} vs {entry.defenseMode ?? "non-psionic"} · {entry.range}</span><small>{entry.attackCost} AP · {entry.defenseCost} DP · {entry.result ?? "no result"}{entry.rolls.length ? ` · rolls ${entry.rolls.join(", ")}` : ""}</small></article>; })}</div></details>}
       </section>
 
       <section className="panel segmented-round-controls">
