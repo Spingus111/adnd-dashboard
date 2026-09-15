@@ -587,8 +587,14 @@ export type PsionicDiscipline = {
 export type PsionicCombatDeclaration = {
   targetIds: string[];
   attackMode: PsionicAttackMode | null;
+  /** Null means the most favorable affordable defense is selected automatically. */
+  defenseMode?: PsionicDefenseMode | null;
   range: "short" | "medium" | "long";
+  /** Final occupied segment. Psionic combat begins in segment 1. */
   exchanges: number;
+  /** GM-marked segments where a physical distraction suppresses the attack; defense remains active. */
+  suppressedSegments?: number[];
+  /** Legacy per-target overrides retained for old saved campaigns. */
   defenseOverrides: Record<string, PsionicDefenseMode | null>;
   useArea: boolean;
 };
@@ -607,6 +613,17 @@ export type PsionicExchangeLog = {
   loss: number | null;
   result: string | null;
   rolls: number[];
+  matrixBand?: string;
+  attackerTotalBefore?: number;
+  attackerAttackBefore?: number;
+  attackerAttackAfter?: number;
+  defenderAttackBefore?: number;
+  defenderAttackAfter?: number;
+  defenderDefenseBefore?: number;
+  defenderDefenseAfter?: number;
+  hpLoss?: number;
+  saveTarget?: number | null;
+  saveModifier?: number;
 };
 
 export type GrappleHold = {

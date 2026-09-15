@@ -16,16 +16,32 @@ export const psionicDefenseModes: PsionicDefenseMode[] = [
   "Tower of Iron Will",
 ];
 
-export const psionicAttackRules: Record<PsionicAttackMode, { cost: number; range: [number, number | null, number | null]; area: string; canTargetNonPsionic: boolean }> = {
-  "Psionic Blast": { cost: 20, range: [2, 4, 6], area: "Cone", canTargetNonPsionic: true },
-  "Mind Thrust": { cost: 4, range: [3, 6, 9], area: "One creature", canTargetNonPsionic: false },
-  "Ego Whip": { cost: 7, range: [4, 8, 12], area: "One creature", canTargetNonPsionic: false },
-  "Id Insinuation": { cost: 10, range: [6, 12, 18], area: "2 in. × 2 in.", canTargetNonPsionic: false },
-  "Psychic Crush": { cost: 14, range: [5, null, null], area: "One creature", canTargetNonPsionic: false },
+type PsionicAttackRule = {
+  cost: number;
+  range: [number, number | null, number | null];
+  area: string;
+  canTargetNonPsionic: boolean;
+  summary: string;
+  matrixProfile: string;
+  special?: string;
 };
 
-export const psionicDefenseRules: Record<PsionicDefenseMode, { cost: number; area: string }> = {
-  "Mind Blank": { cost: 1, area: "Individual" }, "Thought Shield": { cost: 2, area: "Individual" }, "Mental Barrier": { cost: 3, area: "Individual" }, "Intellect Fortress": { cost: 8, area: "10-ft radius" }, "Tower of Iron Will": { cost: 10, area: "3-ft radius" },
+export const psionicAttackRules: Record<PsionicAttackMode, PsionicAttackRule> = {
+  "Psionic Blast": { cost: 20, range: [2, 4, 6], area: "Cone, ½ in. to 2 in. wide", canTargetNonPsionic: true, summary: "A broad wave of force and the only standard mode that can affect a non-psionic mind.", matrixProfile: "Generally strongest against Mind Blank or Thought Shield; Tower of Iron Will is its strongest counter.", special: "Against a non-psionic target the attacker must begin the exchange with at least 100 AP, then use the special d20 save and effect table." },
+  "Mind Thrust": { cost: 4, range: [3, 6, 9], area: "One creature", canTargetNonPsionic: false, summary: "The least expensive focused attack against a psionically aware mind.", matrixProfile: "Especially effective against Mind Blank; Mental Barrier and Intellect Fortress are strong counters at lower strength bands.", special: "May reach double or triple normal range for double or triple AP cost when the GM uses extended range." },
+  "Ego Whip": { cost: 7, range: [4, 8, 12], area: "One creature", canTargetNonPsionic: false, summary: "A focused assault on identity, confidence, and ego.", matrixProfile: "Especially effective against Mind Blank; area defenses usually reduce its loss sharply.", special: "May reach double or triple normal range for double or triple AP cost when the GM uses extended range." },
+  "Id Insinuation": { cost: 10, range: [6, 12, 18], area: "2 in. × 2 in.", canTargetNonPsionic: false, summary: "Unleashes subconscious impulses in every psionically aware creature selected inside the area.", matrixProfile: "Especially effective against Mental Barrier; Mind Blank is often its best individual counter at lower strength bands.", special: "May reach double or triple normal range for double or triple AP cost when the GM uses extended range." },
+  "Psychic Crush": { cost: 14, range: [5, null, null], area: "One creature", canTargetNonPsionic: false, summary: "Attempts to overload and destroy one psionically aware mind.", matrixProfile: "Produces an instant-death chance instead of point loss. Mind Blank is most exposed; Tower of Iron Will is most resistant.", special: "While attacking with Psychic Crush, the attacker may defend only with Thought Shield. Without an available Thought Shield, the attacker is defenseless for that exchange." },
+};
+
+type PsionicDefenseRule = { cost: number; area: string; summary: string; matrixProfile: string; special?: string };
+
+export const psionicDefenseRules: Record<PsionicDefenseMode, PsionicDefenseRule> = {
+  "Mind Blank": { cost: 1, area: "Individual", summary: "Obscures the mind and is known automatically by every psionic.", matrixProfile: "Cheap and often useful against Id Insinuation, but vulnerable to focused Mind Thrust and Ego Whip attacks." },
+  "Thought Shield": { cost: 2, area: "Individual", summary: "Continuously shifts the mind's exposed surface.", matrixProfile: "A balanced low-cost defense and the only defense permitted while making a Psychic Crush attack.", special: "Unlike the other defenses, Thought Shield may be maintained continuously." },
+  "Mental Barrier": { cost: 3, area: "Individual", summary: "Exposes only a tightly controlled portion of consciousness.", matrixProfile: "Strong against Mind Thrust and Ego Whip at low strength; especially vulnerable to Id Insinuation." },
+  "Intellect Fortress": { cost: 8, area: "10-ft radius", summary: "An area defense projected around the psionic's ego and higher mind.", matrixProfile: "Broad protection that is strong against focused attacks; Id Insinuation can still penetrate it at high strength.", special: "Allies in the radius may use it when superior. Non-psionics inside gain +2 on Psionic Blast saves." },
+  "Tower of Iron Will": { cost: 10, area: "3-ft radius", summary: "A compact, powerful area defense centered on the projecting psionic.", matrixProfile: "The strongest general counter to Psionic Blast and Psychic Crush, at the highest DP cost.", special: "Allies in the radius may use it when superior. Non-psionics inside gain +6 on Psionic Blast saves." },
 };
 
 export const minorDisciplineNames = ["Animal Telepathy", "Body Equilibrium", "Body Weaponry", "Cell Adjustment", "Clairaudience", "Clairvoyance", "Detection of Good or Evil", "Detection of Magic", "Domination", "Empathy", "ESP", "Expansion", "Hypnosis", "Invisibility", "Levitation", "Mind Over Body", "Molecular Agitation", "Object Reading", "Precognition", "Reduction", "Sensitivity to Psychic Impressions", "Suspend Animation"] as const;
@@ -99,6 +115,11 @@ const normalMatrix = [
   [[28,27,24,16,7],[30,24,16,11,12],[38,18,10,7,10],[16,26,28,25,21],[27,16,14,10,7]],
 ] as const;
 function strengthBand(value: number) { return value <= 25 ? 0 : value <= 50 ? 1 : value <= 75 ? 2 : value <= 100 ? 3 : value <= 125 ? 4 : 5; }
+const strengthBandLabels = ["01–25", "26–50", "51–75", "76–100", "101–125", "126+"] as const;
+export function psionicStrengthBandLabel(value: number) { return strengthBandLabels[strengthBand(value)]; }
+export function psionicMatrixTotal(totalStrength: number, range: "short" | "medium" | "long") {
+  return range === "long" ? Math.max(1, totalStrength - 25) : totalStrength;
+}
 export function normalPsionicLoss(totalStrength: number, attack: PsionicAttackMode, defense: PsionicDefenseMode) {
   const value = normalMatrix[strengthBand(totalStrength)][psionicAttackModes.indexOf(attack)][psionicDefenseModes.indexOf(defense)];
   return attack === "Psychic Crush" ? { loss: null, instantDeathPercent: value ?? 0 } : { loss: value, instantDeathPercent: 0 };
@@ -119,6 +140,24 @@ export function defenselessPsionicResult(attackerAttackPoints: number, defenderO
   return defenselessMatrix[row][attackRow][defenselessStrengthBand(defenderOriginalAbility)];
 }
 
+export const defenselessPsionicEffects = {
+  C: { label: "Confused", duration: "2d4 rounds", summary: "No psionic activity." },
+  D: { label: "Dazed", duration: "1d4 turns", summary: "No activity." },
+  I: { label: "Idiocy", duration: "Permanent until heal", summary: "Psionic ability is permanently lost; heal may cure the idiocy." },
+  K: { label: "Killed", duration: "Permanent", summary: "Resurrection is possible, but psionic ability is lost." },
+  P: { label: "Power lost", duration: "Permanent; also dazed", summary: "Permanently lose one attack mode, defense mode, or discipline." },
+  S: { label: "Coma", duration: "1d4 weeks", summary: "The victim remains comatose." },
+  R: { label: "Mind controlled", duration: "Until released, or 2d4 weeks then save", summary: "The victor controls the victim's mind." },
+  W: { label: "Power suppressed", duration: "2d4 weeks", summary: "One attack mode, defense mode, or discipline is unusable." },
+} as const;
+
+export function defenselessPsionicOutcome(attackerAttackPoints: number, defenderOriginalAbility: number, attack: PsionicAttackMode) {
+  const raw = defenselessPsionicResult(attackerAttackPoints, defenderOriginalAbility, attack);
+  if (attack === "Psychic Crush") return { loss: null, instantDeathPercent: Number(raw), code: null };
+  if (typeof raw === "number") return { loss: raw, instantDeathPercent: 0, code: null };
+  return { loss: null, instantDeathPercent: 0, code: raw as keyof typeof defenselessPsionicEffects };
+}
+
 export function psionicAttackCost(attack: PsionicAttackMode, range: "short" | "medium" | "long") {
   const multiplier = range === "long" && attack !== "Psionic Blast" && attack !== "Psychic Crush" ? 1 : 1;
   return psionicAttackRules[attack].cost * multiplier;
@@ -134,10 +173,24 @@ export function bestPsionicDefense(psionics: PsionicsSetup, attackerTotal: numbe
   const available = psionics.defenseModes.filter((mode) => psionics.currentDefensePoints >= psionicDefenseRules[mode].cost);
   const candidates = available.length ? available : ["Mind Blank" as PsionicDefenseMode];
   return candidates.reduce((best, mode) => {
-    const contender = normalPsionicLoss(attackerTotal, attack, mode).loss ?? 999;
-    const existing = normalPsionicLoss(attackerTotal, attack, best).loss ?? 999;
+    const contenderResult = normalPsionicLoss(attackerTotal, attack, mode);
+    const existingResult = normalPsionicLoss(attackerTotal, attack, best);
+    const contender = attack === "Psychic Crush" ? contenderResult.instantDeathPercent : contenderResult.loss ?? 999;
+    const existing = attack === "Psychic Crush" ? existingResult.instantDeathPercent : existingResult.loss ?? 999;
     return contender < existing ? mode : best;
   }, candidates[0]);
+}
+
+export function bestPsionicDefenseForAttacks(psionics: PsionicsSetup, attacks: Array<{ attackerTotal: number; attack: PsionicAttackMode }>) {
+  const available = psionics.defenseModes.filter((mode) => psionics.currentDefensePoints >= psionicDefenseRules[mode].cost);
+  if (!available.length || !attacks.length) return null;
+  return available.reduce((best, mode) => {
+    const exposure = (defense: PsionicDefenseMode) => attacks.reduce((total, incoming) => {
+      const result = normalPsionicLoss(incoming.attackerTotal, incoming.attack, defense);
+      return total + (incoming.attack === "Psychic Crush" ? result.instantDeathPercent : result.loss ?? 0);
+    }, 0);
+    return exposure(mode) < exposure(best) ? mode : best;
+  }, available[0]);
 }
 
 const blastSaveTargets = [[5, 20, 19, 18], [9, 18, 17, 16], [13, 16, 15, 14], [17, 14, 13, 12], [21, 12, 11, 10], [25, 10, 9, 8], [29, 8, 7, 6], [33, 6, 5, 4], [35, 4, 3, 2], [37, 2, 1, 0], [Infinity, 0, -1, -2]] as const;

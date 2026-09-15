@@ -1574,16 +1574,84 @@ html[data-theme="dark"] .monster-onslaught-editor > div > label { border-color: 
 .unarmed-bottom-sheet > header small { color: var(--accent); font-size: 10px; font-weight: 900; letter-spacing: .12em; }
 .unarmed-bottom-sheet > header button { min-width: 32px; min-height: 32px; }
 
-.psionic-combat-declaration { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 10px 0; border-color: color-mix(in srgb, var(--accent) 62%, var(--line)); background: color-mix(in srgb, var(--panel) 92%, var(--accent) 8%); }
+.psionics-generation-step { display: grid; gap: 10px; margin-top: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 9px; background: color-mix(in srgb, var(--panel) 96%, var(--accent) 4%); padding: 10px; }
+.psionics-generation-step .osric-creation-step { border-top: 0; padding-top: 0; }
+.psionics-generation-step .osric-creation-step strong, .psionics-generation-editor legend { display: inline-flex; align-items: center; gap: 6px; }
+.psionics-generation-actions, .psionics-generation-result { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.psionics-generation-result > span { display: grid; gap: 2px; }
+.psionics-generation-result > span small { color: var(--muted); }
+.psionic-generation-stats { display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 7px; flex: 1 1 420px; }
+.psionic-generation-stats > span { display: grid; gap: 3px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 7px 9px; }
+.psionic-generation-stats small { display: flex; align-items: center; justify-content: space-between; gap: 5px; color: var(--muted); font-size: 10px; font-weight: 800; }
+.psionic-generation-stats b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.psionics-generation-editor { border: 1px solid var(--line); border-radius: 8px; background: var(--soft); overflow: hidden; }
+.psionics-generation-editor > summary { display: grid; gap: 2px; padding: 9px 10px; cursor: pointer; }
+.psionics-generation-editor > summary > span { font-weight: 900; text-transform: uppercase; }
+.psionics-generation-editor > summary > small { color: var(--muted); line-height: 1.35; }
+.psionics-generation-editor > div { display: grid; gap: 9px; border-top: 1px solid var(--line); padding: 10px; }
+.psionics-generation-editor fieldset { margin: 0; }
+.psionic-generation-rolls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.psionic-generation-rolls > span { display: grid; min-width: 0; gap: 3px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 7px 8px; }
+.psionic-generation-rolls small { display: flex; align-items: center; justify-content: space-between; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 900; }
+.psionic-generation-rolls b { overflow-wrap: anywhere; font-size: 10px; line-height: 1.35; }
+.psionic-choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; margin-top: 5px; }
+.psionic-choice-grid.disciplines { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.psionic-mode-choice { display: grid; grid-template-columns: minmax(0, 1fr) 30px; align-items: center; min-height: 38px; gap: 5px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 4px 5px 4px 8px; }
+.psionic-mode-choice > label { display: flex; min-width: 0; align-items: center; gap: 7px; font-size: 12px; line-height: 1.25; }
+.psionic-mode-choice > label span { min-width: 0; }
+.psionic-mode-choice > .psionic-rule-trigger { width: 30px; min-height: 30px; justify-content: center; border: 1px solid var(--line); border-radius: 50%; text-decoration: none; }
+.psionic-known-modes { display: grid; gap: 8px; }
+.psionic-known-modes > span { display: grid; gap: 5px; }
+.psionic-known-modes > span > b { color: var(--muted); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+.psionic-known-modes > span > span { display: flex; flex-wrap: wrap; gap: 6px; }
+.psionic-known-modes .psionic-rule-trigger { border: 1px solid var(--line); border-radius: 999px; background: var(--soft); padding: 5px 8px; font-size: 11px; text-decoration: none; }
+.psionic-combatant-strip { display: inline-flex; align-items: stretch; gap: 2px; border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--line)); border-radius: 7px; background: color-mix(in srgb, var(--panel) 90%, var(--accent) 10%); overflow: hidden; }
+.psionic-combatant-strip > span { display: grid; min-width: 48px; place-items: center; gap: 0; border-left: 1px solid var(--line); padding: 3px 6px; font-variant-numeric: tabular-nums; }
+.psionic-combatant-strip > span:first-child { border-left: 0; }
+.psionic-combatant-strip small { color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: .08em; }
+.psionic-combatant-strip b { font-size: 11px; }
+.psionic-combat-declaration { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin: 10px 0; border-color: color-mix(in srgb, var(--accent) 62%, var(--line)); background: color-mix(in srgb, var(--panel) 92%, var(--accent) 8%); }
+.psionic-combat-declaration > label { display: grid; align-content: start; gap: 5px; min-width: 0; }
+.psionic-select-with-info { display: grid; grid-template-columns: minmax(0, 1fr) 34px; align-items: center; gap: 5px; }
+.psionic-select-with-info .psionic-rule-trigger, .psionic-select-with-info .psionic-info-trigger { width: 34px; min-height: 34px; justify-content: center; border: 1px solid var(--line); border-radius: 7px; text-decoration: none; }
+.psionic-declaration-pools { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.psionic-declaration-pools > span { display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 7px 9px; }
+.psionic-declaration-pools small { display: flex; align-items: center; justify-content: space-between; gap: 5px; font-size: 9px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+.psionic-declaration-pools b { font-size: 16px; font-variant-numeric: tabular-nums; }
 .psionic-combat-declaration > fieldset { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0; }
 .psionic-combat-declaration > fieldset label { display: inline-flex; align-items: center; gap: 6px; }
 .psionic-combat-declaration small { grid-column: 1 / -1; color: var(--muted); }
+.psionic-segment-explanation { border-left: 3px solid var(--accent); background: var(--panel); padding: 7px 9px; line-height: 1.45; }
 .psionic-event-control { border-left: 3px solid var(--accent); }
+.psionic-event-control > div:first-child { display: grid; gap: 2px; }
+.psionic-event-control > div:first-child span { color: var(--muted); font-size: 11px; }
+.psionic-event-pools { display: flex; gap: 5px; flex-wrap: wrap; }
+.psionic-event-pools > span { display: grid; min-width: 74px; gap: 1px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 5px 7px; }
+.psionic-event-pools small { color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.psionic-event-actions { display: flex; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
 .psionic-combat-log { margin-top: 12px; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--panel) 96%, var(--accent) 4%); }
-.psionic-combat-log > summary { display: flex; justify-content: space-between; padding: 9px 11px; font-weight: 800; color: var(--accent); }
-.psionic-combat-log > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; padding: 0 10px 10px; }
-.psionic-combat-log article { display: grid; gap: 3px; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); }
-.psionic-combat-log article span, .psionic-combat-log article small { color: var(--muted); }
+.psionic-combat-log > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 11px; color: var(--accent); }
+.psionic-combat-log > summary > span { display: grid; gap: 1px; font-weight: 800; }
+.psionic-combat-log > summary small { color: var(--muted); font-size: 9px; font-weight: 600; }
+.psionic-combat-log > summary > b { display: grid; min-width: 26px; min-height: 26px; place-items: center; border-radius: 50%; background: var(--accent); color: var(--panel); font-size: 10px; }
+.psionic-combat-log > div { display: grid; gap: 9px; padding: 0 10px 10px; }
+.psionic-combat-log article { display: grid; gap: 8px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--panel); padding: 9px; }
+.psionic-combat-log article.opposition-attack { border-left-color: var(--danger); }
+.psionic-combat-log article > header, .psionic-combat-log article > footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.psionic-combat-log article > header span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.psionic-combat-log article > header b { border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, var(--panel)); color: var(--accent); padding: 3px 7px; font-size: 9px; text-transform: uppercase; }
+.psionic-combat-log article.opposition-attack > header b { background: color-mix(in srgb, var(--danger) 12%, var(--panel)); color: var(--danger); }
+.psionic-log-matchup { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
+.psionic-log-matchup span { color: var(--muted); font-size: 9px; font-weight: 900; text-transform: uppercase; }
+.psionic-log-matchup strong:last-child { text-align: right; }
+.psionic-log-modes, .psionic-log-accounting { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.psionic-log-modes > span, .psionic-log-accounting > span { display: grid; min-width: 0; gap: 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--soft); padding: 6px 7px; }
+.psionic-log-modes small, .psionic-log-accounting small { color: var(--muted); font-size: 8px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+.psionic-log-modes b, .psionic-log-modes .psionic-rule-trigger, .psionic-log-accounting b { overflow-wrap: anywhere; font-size: 10px; font-weight: 800; }
+.psionic-log-accounting em { min-height: 1em; color: var(--muted); font-size: 9px; font-style: normal; }
+.psionic-combat-log article > footer { border-top: 1px solid var(--line); padding-top: 7px; }
+.psionic-combat-log article > footer strong { font-size: 11px; }
+.psionic-combat-log article > footer span { color: var(--muted); font-size: 9px; }
 .unarmed-number-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; border-bottom: 1px solid var(--line); background: var(--soft); padding: 9px 12px; }
 .unarmed-number-tile { display: grid; min-width: 0; min-height: 42px; gap: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 7px 9px; cursor: help; }
 .unarmed-number-tile > span { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
@@ -1601,6 +1669,13 @@ html[data-theme="dark"] .monster-onslaught-editor > div > label { border-color: 
   .unarmed-override-editor > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .unarmed-bottom-sheet { right: 0; bottom: 0; left: 0; width: 100%; max-height: 78vh; border-width: 2px 0 0; border-radius: 14px 14px 0 0; }
   .psionic-combat-declaration { grid-template-columns: 1fr; }
+  .psionic-generation-stats, .psionic-generation-rolls, .psionic-declaration-pools, .psionic-log-modes, .psionic-log-accounting { grid-template-columns: 1fr; }
+  .psionic-choice-grid, .psionic-choice-grid.disciplines { grid-template-columns: 1fr; }
+  .psionic-combatant-strip { width: 100%; }
+  .psionic-combatant-strip > span { flex: 1; }
+  .psionic-log-matchup { grid-template-columns: 1fr; }
+  .psionic-log-matchup span { display: none; }
+  .psionic-log-matchup strong:last-child { text-align: left; }
   .unarmed-number-strip { grid-template-columns: 1fr; }
   .unarmed-event-control { align-items: stretch; flex-direction: column; }
   .fending-list > div { grid-template-columns: minmax(0, 1fr) auto; }
