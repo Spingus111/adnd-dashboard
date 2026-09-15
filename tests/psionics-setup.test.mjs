@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-import { bestPsionicDefense, defenselessPsionicResult, normalizePsionics, normalPsionicLoss, psionicAttackModes, psionicBlastEffect, psionicBlastSaveTarget, psionicDefenseModes, restorePsionicPoints } from "../app/psionics.ts";
+import { bestPsionicDefense, bestPsionicDefenseForAttacks, defenselessPsionicOutcome, defenselessPsionicResult, normalizePsionics, normalPsionicLoss, psionicAttackModes, psionicBlastEffect, psionicBlastSaveTarget, psionicDefenseModes, psionicMatrixTotal, restorePsionicPoints } from "../app/psionics.ts";
 import { createStableNpc, normalizeStableNpc, stableNpcToParticipant } from "../app/npc-stable.ts";
 
 test("psionic setup clamps point pools, removes invalid modes, and gives psions Mind Blank", () => {
@@ -46,6 +46,15 @@ test("psionic matrices, blast effects, and recovery remain data-driven", () => {
   assert.equal(bestPsionicDefense(restored, 90, "Mind Thrust"), "Mind Blank");
 });
 
+test("RAW combat helpers distinguish death chances, range bands, and favorable defenses", () => {
+  const fullDefense = normalizePsionics({ enabled: true, maxAttackPoints: 100, currentAttackPoints: 100, maxDefensePoints: 100, currentDefensePoints: 100, attackModes: ["Psychic Crush"], defenseModes: psionicDefenseModes });
+  assert.equal(bestPsionicDefense(fullDefense, 90, "Psychic Crush"), "Tower of Iron Will");
+  assert.equal(bestPsionicDefenseForAttacks(fullDefense, [{ attackerTotal: 90, attack: "Psychic Crush" }]), "Tower of Iron Will");
+  assert.equal(psionicMatrixTotal(126, "long"), 101);
+  assert.deepEqual(defenselessPsionicOutcome(76, 45, "Psychic Crush"), { loss: null, instantDeathPercent: 84, code: null });
+  assert.deepEqual(defenselessPsionicOutcome(76, 45, "Ego Whip"), { loss: null, instantDeathPercent: 0, code: "P" });
+});
+
 test("both enemy setup surfaces expose the psionic combat configuration", () => {
   for (const path of ["app/npc-stable-panel.tsx", "app/segmented-initiative-panel.tsx"]) {
     const source = fs.readFileSync(path, "utf8");
@@ -54,4 +63,16 @@ test("both enemy setup surfaces expose the psionic combat configuration", () => 
     assert.match(source, /Defense maximum/);
     assert.match(source, /Mind Blank is automatic/);
   }
+});
+
+test("psionic combat UI exposes rules help and resolves both sides simultaneously", () => {
+  const combat = fs.readFileSync("app/segmented-initiative-panel.tsx", "utf8");
+  const creation = fs.readFileSync("app/character-sheet-panel.tsx", "utf8");
+  assert.match(combat, /resolvePsionicSegment/);
+  assert.match(combat, /All party and enemy psionic attacks in this segment resolve from the same starting pools/);
+  assert.match(combat, /hasPsionicCombatant && <details className="psionic-combat-log"/);
+  assert.match(combat, /Through segment/);
+  assert.match(combat, /PsionicAttackModeTooltip/);
+  assert.match(creation, /PsionicDisciplineTooltip/);
+  assert.match(creation, /PsionicTermInfoButton term="potential"/);
 });

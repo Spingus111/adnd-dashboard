@@ -34,6 +34,7 @@ import { announceCombatMutation, canControlCombatant, canControlCombatProgressio
 import { attackInstrumentLabel, compareEstablishedMeleeSpeed, compareInitialChargeReach, connectedEngagementClusterIds, engagedOpponentIds, establishEngagement, getAttackSpeedFactor, getDefendingSpeedFactor, getSpeedFactorAttackCount, getWeaponDamageForTarget, getWeaponVsArmorModifier, isDaggerLengthWeapon, isMeleeAction, participantAttackRules, removeEngagement, weaponReachFeet, wereEngagedAtStartOfRound } from "./weapon-combat-rules";
 import { phbWeaponRules, weaponCanMakeMissileAttack, weaponIsThrown, weaponRulesById, weaponRulesForItem } from "./weapon-rules";
 import { NaturalSpeedInfoButton, WeaponRulesTooltip } from "./weapon-rules-tooltip";
+import { PsionicAttackModeTooltip, PsionicDefenseModeTooltip, PsionicTermInfoButton } from "./psionics-rules-tooltip";
 import { announceCampaignOperations } from "./campaign-operation-events";
 import type { CampaignOperation } from "./campaign-operations";
 import { sharedId } from "./shared-id";
@@ -42,7 +43,7 @@ import { stableNpcToParticipant } from "./npc-stable";
 import { applyManualCombatModifier, parseManualCombatModifier } from "./combat-manual-modifier";
 import { participantIsConscious, pruneInvalidCombatTargets } from "./combat-targeting";
 import { attackerArmorTarget, controllingHoldId, defenderArmorModifier, grappleOutcome, grappleResultModifier, holdsForParticipant, normalizeUnarmedOverrides, overbearOutcome, overbearResultModifier, participantIsGrappling, pileOnApplies, unarmedHitBreakdown, unarmedHitSucceeds } from "./unarmed-combat";
-import { bestPsionicDefense, defenselessPsionicResult, normalizePsionics, normalPsionicLoss, psionicAttackCost, psionicAttackModes, psionicAttackRules, psionicBlastEffect, psionicBlastSaveTarget, psionicDefenseModes, psionicDefenseRules, psionicRangeAdjustedLoss } from "./psionics";
+import { bestPsionicDefenseForAttacks, defenselessPsionicEffects, defenselessPsionicOutcome, normalizePsionics, normalPsionicLoss, psionicAttackCost, psionicAttackModes, psionicAttackRules, psionicBlastEffect, psionicBlastSaveTarget, psionicDefenseModes, psionicDefenseRules, psionicMatrixTotal, psionicRangeAdjustedLoss, psionicStrengthBandLabel } from "./psionics";
 import { getNonProficiencyPenalty, getSpellcastingTracks, getWeaponTrainingState, specialistClassLevel, specializedMissileRate } from "./osric-advancement";
 import { publishAttackControls, subscribeAttackRequests } from "./combat-attack-control";
 import { rollSecureDie, secureRandomFloat, secureRandomIndex } from "./random";
@@ -182,7 +183,7 @@ const actionHelp: Record<Exclude<SegmentedAction, "">, string> = {
   "release-hold": "Release the selected hold. The relationship ends if no other hold keeps it active.",
   "small-weapon": "Attack within a grapple using a dagger-length-or-smaller normal weapon in hand or Quick Access.",
   "natural-attack": "Use a natural claw, bite, or similar attack normally while Grappling.",
-  "psionic-combat": "Choose a psionic attack and target. The tracker creates one exchange per occupied segment, automatically maintains a legal defense, and records the matrix result.",
+  "psionic-combat": "Choose an attack, target, defense, and final occupied segment. Psionic combat ignores ordinary initiative and resolves one simultaneous exchange in every segment from 1 through the selected final segment.",
   "stand-up": "Use this action to remove Prone. Overborne prevents standing until that restriction ends.",
   unconscious: "No voluntary action. This is assigned automatically at 0 HP.",
   die: "Lose 1 HP automatically in the rolled segment. This is assigned at -1 through -9 HP.",
@@ -448,12 +449,12 @@ function participantEvents(participant: SegmentedParticipant, fighterLevel = 1, 
 
   const common = { participantId: participant.id };
   if (participant.action === "psionic-combat") {
-    const exchanges = Math.max(1, Math.min(10, participant.psionicCombat?.exchanges ?? 1, 11 - participant.scheduledSegment));
+    const exchanges = Math.max(1, Math.min(10, participant.psionicCombat?.exchanges ?? 10));
     return Array.from({ length: exchanges }, (_, index) => ({
       ...common,
       key: `psionic-exchange-${index + 1}`,
       round: participant.declarationRound as number,
-      segment: participant.scheduledSegment! + index,
+      segment: index + 1,
       targetId: participant.psionicCombat?.targetIds[0] ?? participant.targetId ?? undefined,
       label: `Psionic exchange ${index + 1} of ${exchanges}`,
       emoji: "🧠",
@@ -627,6 +628,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
   const viewerHasGmPermissions = partyChatRoleHasGmPermissions(viewerRole);
   const combatIdentity: CombatIdentity = { role: viewerRole, dockedCharacterIds: viewerDockedCharacterIds, clientId: viewerClientId };
   const hasProgressionAuthority = canControlCombatProgression(combatIdentity);
+  const hasPsionicCombatant = tracker.participants.some((participant) => normalizePsionics(participant.psionics).enabled);
 
   useEffect(() => {
     if (tracker.phase !== "active" || tracker.currentSegment < 1) return;
@@ -1000,7 +1002,13 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
   }
 
   function updatePsionics(participant: SegmentedParticipant, patch: Partial<NonNullable<SegmentedParticipant["psionics"]>>) {
-    updateParticipant(participant.id, { psionics: normalizePsionics({ ...normalizePsionics(participant.psionics), ...patch }) });
+    const current = normalizePsionics(participant.psionics);
+    const next = { ...current, ...patch };
+    if (patch.maxAttackPoints !== undefined || patch.maxDefensePoints !== undefined) {
+      next.originalPsionicAbility = Math.max(0, Number(next.maxAttackPoints) || 0) + Math.max(0, Number(next.maxDefensePoints) || 0);
+      next.psionicStrength = Math.max(0, Math.min(Number(next.maxAttackPoints) || 0, Number(next.maxDefensePoints) || 0));
+    }
+    updateParticipant(participant.id, { psionics: normalizePsionics(next) });
   }
 
   function updateOnslaughtAttack(participant: SegmentedParticipant, attackId: string, damageExpression: string) {
@@ -1496,8 +1504,10 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
             psionicCombat: action === "psionic-combat" ? {
               targetIds: [],
               attackMode: psionics.attackModes[0] ?? "Mind Thrust",
+              defenseMode: null,
               range: "short" as const,
-              exchanges: 1,
+              exchanges: 10,
+              suppressedSegments: [],
               defenseOverrides: {},
               useArea: false,
             } : null,
@@ -1527,7 +1537,10 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
           const activeConditionNames = new Set(current.segmentedInitiative.effects.filter((effect) => effect.remainingRounds > 0 && (effect.participantId === entry.id || (!effect.participantId && effect.target === entry.name))).map((effect) => effect.name));
           if (activeConditionNames.has("Prone") && !proneAllowedActions.has(bulkEnemyAction)) return { ...entry, statusNote: "Prone: choose unarmed combat or Stand Up." };
           if (bulkEnemyAction === "stand-up" && (!activeConditionNames.has("Prone") || activeConditionNames.has("Overborne"))) return { ...entry, statusNote: activeConditionNames.has("Overborne") ? "Cannot Stand Up while Overborne." : "Not Prone." };
-          const legalTargets = targetsForAction(entry, bulkEnemyAction).filter((target) => target.side !== entry.side);
+          const entryPsionics = normalizePsionics(entry.psionics);
+          if (bulkEnemyAction === "psionic-combat" && (!entryPsionics.enabled || !entryPsionics.attackModes.length)) return { ...entry, statusNote: "Psionic combat requires a configured attack mode." };
+          const selectedPsionicAttack = entryPsionics.attackModes[0] ?? null;
+          const legalTargets = targetsForAction(entry, bulkEnemyAction).filter((target) => target.side !== entry.side && (bulkEnemyAction !== "psionic-combat" || selectedPsionicAttack === "Psionic Blast" || normalizePsionics(target.psionics).enabled));
           const automatic = bulkEnemyRandomTarget && legalTargets.length
             ? legalTargets[secureRandomIndex(legalTargets.length)].id
             : automaticTargetId(entry, bulkEnemyAction);
@@ -1539,10 +1552,20 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
             targetId: automatic,
             targetIds: [],
             areaOfEffect: false,
+            psionicCombat: bulkEnemyAction === "psionic-combat" ? {
+              targetIds: automatic ? [automatic] : [],
+              attackMode: selectedPsionicAttack,
+              defenseMode: null,
+              range: "short" as const,
+              exchanges: 10,
+              suppressedSegments: [],
+              defenseOverrides: {},
+              useArea: selectedPsionicAttack === "Id Insinuation" || selectedPsionicAttack === "Psionic Blast",
+            } : null,
             preparedSpellSlotId: null,
             pendingWeaponId: null,
             statusNote: "",
-            ready: bulkEnemyAction !== "switch-weapon",
+            ready: bulkEnemyAction !== "switch-weapon" && (bulkEnemyAction !== "psionic-combat" || Boolean(automatic)),
           };
         }),
       },
@@ -1583,7 +1606,12 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
       if (!psionics.attackModes.includes(setup.attackMode)) return `${participant.name} does not know ${setup.attackMode}.`;
       if (!setup.targetIds.length) return `${participant.name} needs at least one psionic target.`;
       if (!targetsForAction(participant, "psionic-combat").some((target) => target.id === setup.targetIds[0])) return `${participant.name}'s psionic target is no longer valid.`;
-      if (setup.attackMode === "Psychic Crush" && !psionics.defenseModes.includes("Thought Shield")) return `${participant.name} needs Thought Shield to use Psychic Crush.`;
+      const rangeIndex = setup.range === "short" ? 0 : setup.range === "medium" ? 1 : 2;
+      if (psionicAttackRules[setup.attackMode].range[rangeIndex] === null) return `${setup.attackMode} cannot be used at ${setup.range} range.`;
+      const nonPsionicTarget = tracker.participants.find((target) => setup.targetIds.includes(target.id) && !normalizePsionics(target.psionics).enabled);
+      if (nonPsionicTarget && setup.attackMode !== "Psionic Blast") return `${setup.attackMode} cannot target ${nonPsionicTarget.name}, who is not psionic.`;
+      if (nonPsionicTarget && participantPsionicEffects(nonPsionicTarget, tracker.effects).some((effect) => /insanity|insane/i.test(effect.name))) return `${nonPsionicTarget.name} is insane and cannot be attacked by Psionic Blast.`;
+      if (nonPsionicTarget && psionics.currentAttackPoints < 100) return `${participant.name} needs at least 100 current Attack Points to use Psionic Blast against a non-psionic target.`;
       if (psionics.currentAttackPoints < psionicAttackCost(setup.attackMode, setup.range)) return `${participant.name} lacks Attack Points for ${setup.attackMode}.`;
     }
     const activeConditions = conditionsForParticipant(participant).filter((effect) => effect.remainingRounds > 0);
@@ -3423,68 +3451,198 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
     </div>;
   }
 
-  function participantMentalTotal(participant: SegmentedParticipant) {
+  function participantPsionicEffects(participant: SegmentedParticipant, effects: CombatEffect[]) {
+    return effects.filter((effect) => effect.remainingRounds > 0 && (effect.participantId === participant.id || (!effect.participantId && effect.target === participant.name)));
+  }
+
+  function participantMentalTotal(participant: SegmentedParticipant, effects = tracker.effects) {
+    if (participantPsionicEffects(participant, effects).some((effect) => /feeblemind/i.test(effect.name))) return 0;
     const character = participantCharacter(participant);
     return character ? Math.max(0, Number(character.stats[3]) || 0) + Math.max(0, Number(character.stats[4]) || 0) : 20;
   }
 
-  function psionicEffect(result: string, target: SegmentedParticipant, attackerName: string) {
-    const duration = result === "Sleep" ? rollSecureDie(4) * 5 : result === "Stun" || result === "Confused" || result === "Panicked" || result === "Enraged" ? rollSecureDie(4) * 2 : result === "Coma" ? rollSecureDie(4) * 7 * 24 * 60 : 0;
-    const description = result === "Death" || result === "Killed" ? "Psionic fatality." : result === "Coma" ? "Cannot be awakened; duration is tracked in minutes." : result === "Feebleminded" ? "Persists until cure; cannot attack or defend." : `${result} caused by ${attackerName}'s psionic attack.`;
-    return { id: id(), name: result === "Killed" ? "Dead" : result, target: target.name, participantId: target.id, description, remainingRounds: duration || 9999 } satisfies CombatEffect;
+  function psionicBlastSaveModifier(participant: SegmentedParticipant, effects: CombatEffect[]) {
+    const character = participantCharacter(participant);
+    let modifier = 0;
+    if (character) {
+      if (/magic-user/i.test(character.className)) modifier += 1;
+      if (/cleric/i.test(character.className)) modifier += 2;
+      if (/elf/i.test(character.race)) modifier += 2;
+      if (/dwarf/i.test(character.race)) modifier += 4;
+      if (/halfling/i.test(character.race)) modifier += 4;
+    }
+    const names = participantPsionicEffects(participant, effects).map((effect) => effect.name.toLowerCase());
+    if (names.some((name) => name.includes("intellect fortress"))) modifier += 2;
+    if (names.some((name) => name.includes("mind blank"))) modifier += 2;
+    if (names.some((name) => name.includes("tower of iron will"))) modifier += 6;
+    if (names.some((name) => name.includes("mind bar"))) modifier += 6;
+    if (names.some((name) => name.includes("panicked"))) modifier -= 1;
+    if (names.some((name) => name.includes("enraged"))) modifier -= 1;
+    if (names.some((name) => name.includes("confused"))) modifier -= 2;
+    if (names.some((name) => name.includes("hopeless"))) modifier -= 3;
+    if (names.some((name) => name.includes("stun"))) modifier -= 3;
+    if (participant.action === "psionic-combat") modifier -= 4;
+    return modifier;
   }
 
-  function resolvePsionicExchange(participant: SegmentedParticipant, event: SegmentEvent) {
-    if (!authorizeCombatant(participant.id)) return;
-    const setup = participant.psionicCombat;
-    const attackMode = setup?.attackMode;
-    if (!setup || !attackMode || participant.completedEvents.includes(`psionic:${resolutionKey(event)}`)) return;
-    const attackerPsionics = normalizePsionics(participant.psionics);
-    const targets = tracker.participants.filter((entry) => setup.targetIds.includes(entry.id) && entry.side !== participant.side);
-    if (!attackerPsionics.enabled || !targets.length) return;
-    const cost = psionicAttackCost(attackMode, setup.range);
-    if (attackerPsionics.currentAttackPoints < cost) return;
-    const attackerTotal = attackerPsionics.currentAttackPoints + attackerPsionics.currentDefensePoints;
-    const matrixTotal = setup.range === "long" ? Math.max(1, attackerTotal - 25) : attackerTotal;
+  function rollDiceTotal(count: number, sides: number) {
+    return Array.from({ length: count }, () => rollSecureDie(sides)).reduce((total, roll) => total + roll, 0);
+  }
+
+  function psionicEffect(result: string, target: SegmentedParticipant, attackerName: string, source: "blast" | keyof typeof defenselessPsionicEffects = "blast") {
+    let remainingRounds = 9999;
+    let duration = "until cured or adjudicated";
+    if (source === "blast") {
+      if (result === "Coma") { const days = rollDiceTotal(2, 6); remainingRounds = days * 1440; duration = `${days} days`; }
+      if (result === "Sleep") { const turns = rollDiceTotal(5, 4); remainingRounds = turns * 10; duration = `${turns} turns`; }
+      if (result === "Stun") { const turns = rollDiceTotal(2, 4); remainingRounds = turns * 10; duration = `${turns} turns`; }
+      if (result === "Confused") { const turns = rollDiceTotal(1, 4); remainingRounds = turns * 10; duration = `${turns} turns`; }
+      if (result === "Enraged" || result === "Panicked") { const rounds = rollDiceTotal(2, 4); remainingRounds = rounds; duration = `${rounds} rounds`; }
+      if (result === "Temporary insanity") { const weeks = rollDiceTotal(2, 6); remainingRounds = weeks * 10080; duration = `${weeks} weeks`; }
+      if (result === "Mild insanity") { const weeks = rollDiceTotal(1, 4); remainingRounds = weeks * 10080; duration = `${weeks} weeks`; }
+    } else {
+      if (source === "C") { const rounds = rollDiceTotal(2, 4); remainingRounds = rounds; duration = `${rounds} rounds`; }
+      if (source === "D") { const turns = rollDiceTotal(1, 4); remainingRounds = turns * 10; duration = `${turns} turns`; }
+      if (source === "P") { const turns = rollDiceTotal(1, 4); remainingRounds = 9999; duration = `permanent power loss; dazed ${turns} turns`; }
+      if (source === "S") { const weeks = rollDiceTotal(1, 4); remainingRounds = weeks * 10080; duration = `${weeks} weeks`; }
+      if (source === "R" || source === "W") { const weeks = rollDiceTotal(2, 4); remainingRounds = weeks * 10080; duration = `${weeks} weeks`; }
+    }
+    const fatal = result === "Death" || result === "Killed";
+    const description = fatal ? "Psionic fatality." : `${result} caused by ${attackerName}'s psionic attack · ${duration}.`;
+    return { id: id(), name: fatal ? "Dead" : result, target: target.name, participantId: target.id, description, remainingRounds } satisfies CombatEffect;
+  }
+
+  function resolvePsionicSegment(segment: number) {
+    if (!authorizeProgression()) return;
     setCampaign((current) => {
-      const currentAttacker = current.segmentedInitiative.participants.find((entry) => entry.id === participant.id);
-      if (!currentAttacker) return current;
-      const currentAttackPsionics = normalizePsionics(currentAttacker.psionics);
+      const round = current.segmentedInitiative.round;
+      const completionKey = `psionic:${round}:psionic-exchange-${segment}`;
+      const snapshot = current.segmentedInitiative.participants;
       const effects: CombatEffect[] = [...current.segmentedInitiative.effects];
       const logs = [...(current.segmentedInitiative.psionicExchanges ?? [])];
-      const participants = current.segmentedInitiative.participants.map((entry) => {
-        if (entry.id === currentAttacker.id) return { ...entry, psionics: normalizePsionics({ ...currentAttackPsionics, currentAttackPoints: currentAttackPsionics.currentAttackPoints - cost }), completedEvents: Array.from(new Set([...entry.completedEvents, `psionic:${resolutionKey(event)}`])), statusNote: `Psionic exchange ${event.segment} resolved` };
-        if (!targets.some((target) => target.id === entry.id)) return entry;
-        const defenderPsionics = normalizePsionics(entry.psionics);
+      const attacks = snapshot.flatMap((attacker) => {
+        const setup = attacker.psionicCombat;
+        const psionics = normalizePsionics(attacker.psionics);
+        const attackMode = setup?.attackMode;
+        if (attacker.action !== "psionic-combat" || attacker.declarationRound !== round || !setup || setup.exchanges < segment || !attackMode || attacker.completedEvents.includes(completionKey) || !psionics.enabled || !psionics.attackModes.includes(attackMode)) return [];
+        if (setup.suppressedSegments?.includes(segment)) return [];
+        const attackerEffects = participantPsionicEffects(attacker, current.segmentedInitiative.effects);
+        if (attackerEffects.some((effect) => effect.name === "Dead") || combatConditionRule(attackerEffects).cannotAttack) return [];
+        const cost = psionicAttackCost(attackMode, setup.range);
+        if (psionics.currentAttackPoints < cost) return [];
+        const rangeIndex = setup.range === "short" ? 0 : setup.range === "medium" ? 1 : 2;
+        if (psionicAttackRules[attackMode].range[rangeIndex] === null) return [];
+        const targets = snapshot.filter((target) => {
+          if (!setup.targetIds.includes(target.id) || target.side === attacker.side) return false;
+          const targetEffects = participantPsionicEffects(target, current.segmentedInitiative.effects);
+          if (targetEffects.some((effect) => effect.name === "Dead") || !participantIsConscious(target)) return false;
+          if (normalizePsionics(target.psionics).enabled) return true;
+          const insane = targetEffects.some((effect) => /insanity|insane/i.test(effect.name));
+          return attackMode === "Psionic Blast" && psionics.currentAttackPoints >= 100 && !insane;
+        });
+        if (!targets.length) return [];
+        const attackerTotal = psionics.currentAttackPoints + psionics.currentDefensePoints;
+        return [{ attacker, setup, psionics, attackMode, cost, attackerTotal, matrixTotal: psionicMatrixTotal(attackerTotal, setup.range), targets }];
+      });
+      const attackCosts = new Map<string, number>();
+      const defenseCosts = new Map<string, number>();
+      const attackLosses = new Map<string, number>();
+      const defenseLosses = new Map<string, number>();
+      const hpLosses = new Map<string, number>();
+      attacks.forEach((attack) => attackCosts.set(attack.attacker.id, attack.cost));
+
+      const defenses = new Map<string, PsionicDefenseMode | null>();
+      snapshot.forEach((defender) => {
+        const defenderPsionics = normalizePsionics(defender.psionics);
+        if (!defenderPsionics.enabled || defenderPsionics.currentDefensePoints <= 0) return;
+        const incoming = attacks.filter((attack) => attack.targets.some((target) => target.id === defender.id));
+        if (!incoming.length) return;
+        const attackingWithCrush = attacks.some((attack) => attack.attacker.id === defender.id && attack.attackMode === "Psychic Crush");
+        const declared = defender.action === "psionic-combat" ? defender.psionicCombat?.defenseMode ?? null : null;
+        const legalDeclared = declared && defenderPsionics.defenseModes.includes(declared) && defenderPsionics.currentDefensePoints >= psionicDefenseRules[declared].cost && (!attackingWithCrush || declared === "Thought Shield") ? declared : null;
+        const defense = legalDeclared ?? (attackingWithCrush
+          ? defenderPsionics.defenseModes.includes("Thought Shield") && defenderPsionics.currentDefensePoints >= psionicDefenseRules["Thought Shield"].cost ? "Thought Shield" : null
+          : bestPsionicDefenseForAttacks(defenderPsionics, incoming.map((attack) => ({ attackerTotal: attack.matrixTotal, attack: attack.attackMode }))));
+        defenses.set(defender.id, defense);
+        if (defense) defenseCosts.set(defender.id, psionicDefenseRules[defense].cost);
+      });
+
+      const chargedAttacks = new Set<string>();
+      const chargedDefenses = new Set<string>();
+      attacks.forEach((attack) => attack.targets.forEach((target) => {
+        const attackCost = chargedAttacks.has(attack.attacker.id) ? 0 : attack.cost;
+        chargedAttacks.add(attack.attacker.id);
+        const defenderPsionics = normalizePsionics(target.psionics);
         if (!defenderPsionics.enabled) {
-          if (attackMode !== "Psionic Blast" || currentAttackPsionics.currentAttackPoints < 100) return entry;
-          const targetNumber = psionicBlastSaveTarget(participantMentalTotal(entry), setup.range);
+          const mentalTotal = participantMentalTotal(target, current.segmentedInitiative.effects);
+          const saveTarget = psionicBlastSaveTarget(mentalTotal, attack.setup.range);
+          const saveModifier = psionicBlastSaveModifier(target, current.segmentedInitiative.effects);
           const saveRoll = rollSecureDie(20);
-          const success = saveRoll >= targetNumber;
-          const effectRoll = success ? null : rollSecureDie(100);
-          const result = effectRoll === null ? "Saved" : psionicBlastEffect(participantMentalTotal(entry), effectRoll);
-          if (!success) effects.push(psionicEffect(result, entry, currentAttacker.name));
-          logs.push({ id: id(), round: current.segmentedInitiative.round, segment: event.segment, attackerId: currentAttacker.id, defenderId: entry.id, attackMode, defenseMode: null, range: setup.range, attackCost: cost, defenseCost: 0, loss: null, result, rolls: effectRoll === null ? [saveRoll] : [saveRoll, effectRoll] });
-          return entry;
+          const saved = saveRoll + saveModifier >= saveTarget;
+          const effectRoll = saved ? null : rollSecureDie(100);
+          const result = effectRoll === null ? "Saved" : psionicBlastEffect(mentalTotal, effectRoll);
+          if (!saved) effects.push(psionicEffect(result, target, attack.attacker.name));
+          logs.push({ id: id(), round, segment, attackerId: attack.attacker.id, defenderId: target.id, attackMode: attack.attackMode, defenseMode: null, range: attack.setup.range, attackCost, defenseCost: 0, loss: null, result, rolls: effectRoll === null ? [saveRoll] : [saveRoll, effectRoll], matrixBand: "Psionic Blast save", attackerTotalBefore: attack.attackerTotal, attackerAttackBefore: attack.psionics.currentAttackPoints, attackerAttackAfter: Math.max(0, attack.psionics.currentAttackPoints - attack.cost), saveTarget, saveModifier });
+          return;
         }
-        const override = setup.defenseOverrides[entry.id];
-        const defense = override && defenderPsionics.defenseModes.includes(override) ? override : bestPsionicDefense(defenderPsionics, matrixTotal, attackMode);
-        const defenseCost = psionicDefenseRules[defense].cost;
-        const raw = defenderPsionics.currentDefensePoints <= 0
-          ? defenselessPsionicResult(currentAttackPsionics.currentAttackPoints, defenderPsionics.originalPsionicAbility, attackMode)
-          : normalPsionicLoss(matrixTotal, attackMode, defense).loss;
-        const instantDeath = defenderPsionics.currentDefensePoints <= 0 || attackMode === "Psychic Crush";
-        const resultRoll = instantDeath ? rollSecureDie(100) : null;
-        const adjusted = typeof raw === "number" ? psionicRangeAdjustedLoss(raw, setup.range, attackerTotal) : raw;
-        const killed = attackMode === "Psychic Crush" && typeof raw === "number" && resultRoll !== null && resultRoll <= raw;
-        const nextDefense = Math.max(0, defenderPsionics.currentDefensePoints - defenseCost - (typeof adjusted === "number" ? adjusted : 0));
-        const nextAttack = defenderPsionics.currentAttackPoints;
-        const hpLoss = defenderPsionics.currentDefensePoints <= 0 && typeof adjusted === "number" ? Math.max(0, adjusted - nextAttack) : 0;
-        const finalAttack = defenderPsionics.currentDefensePoints <= 0 && typeof adjusted === "number" ? Math.max(0, nextAttack - adjusted) : nextAttack;
-        const result = killed ? "Dead" : typeof adjusted === "string" ? adjusted : `${adjusted} DP loss`;
-        if (killed || typeof adjusted === "string") effects.push(psionicEffect(result, entry, currentAttacker.name));
-        logs.push({ id: id(), round: current.segmentedInitiative.round, segment: event.segment, attackerId: currentAttacker.id, defenderId: entry.id, attackMode, defenseMode: defense, range: setup.range, attackCost: cost, defenseCost, loss: typeof adjusted === "number" ? adjusted : null, result, rolls: resultRoll === null ? [] : [resultRoll] });
-        return { ...entry, currentHp: hpLoss ? entry.currentHp - hpLoss : entry.currentHp, psionics: normalizePsionics({ ...defenderPsionics, currentAttackPoints: finalAttack, currentDefensePoints: nextDefense }) };
+
+        const defense = defenses.get(target.id) ?? null;
+        let loss: number | null = null;
+        let result = "No loss";
+        let resultRoll: number | null = null;
+        let hpLoss = 0;
+        let matrixBand = `Total ${psionicStrengthBandLabel(attack.matrixTotal)}`;
+        if (defense) {
+          const outcome = normalPsionicLoss(attack.matrixTotal, attack.attackMode, defense);
+          if (attack.attackMode === "Psychic Crush") {
+            resultRoll = outcome.instantDeathPercent > 0 ? rollSecureDie(100) : null;
+            result = resultRoll !== null && resultRoll <= outcome.instantDeathPercent ? "Killed" : outcome.instantDeathPercent > 0 ? `${outcome.instantDeathPercent}% kill chance · survived` : "No chance of instant death";
+            if (result === "Killed") effects.push(psionicEffect(result, target, attack.attacker.name));
+          } else {
+            loss = psionicRangeAdjustedLoss(outcome.loss ?? 0, attack.setup.range, attack.attackerTotal);
+            defenseLosses.set(target.id, (defenseLosses.get(target.id) ?? 0) + loss);
+            result = `${loss} Defense Points lost`;
+          }
+        } else {
+          matrixBand = `Defenseless · attacker AP ${psionicStrengthBandLabel(attack.psionics.currentAttackPoints)}`;
+          const outcome = defenselessPsionicOutcome(attack.psionics.currentAttackPoints, defenderPsionics.originalPsionicAbility, attack.attackMode);
+          if (outcome.instantDeathPercent > 0) {
+            resultRoll = rollSecureDie(100);
+            result = resultRoll <= outcome.instantDeathPercent ? "Killed" : `${outcome.instantDeathPercent}% kill chance · survived`;
+            if (result === "Killed") effects.push(psionicEffect(result, target, attack.attacker.name));
+          } else if (outcome.code) {
+            const effect = defenselessPsionicEffects[outcome.code];
+            result = `${effect.label} · ${effect.duration}`;
+            effects.push(psionicEffect(effect.label, target, attack.attacker.name, outcome.code));
+          } else {
+            loss = psionicRangeAdjustedLoss(outcome.loss ?? 0, attack.setup.range, attack.attackerTotal);
+            attackLosses.set(target.id, (attackLosses.get(target.id) ?? 0) + loss);
+            const totalAttackLoss = attackLosses.get(target.id) ?? 0;
+            hpLoss = Math.max(0, totalAttackLoss - defenderPsionics.currentAttackPoints) - (hpLosses.get(target.id) ?? 0);
+            if (hpLoss > 0) hpLosses.set(target.id, (hpLosses.get(target.id) ?? 0) + hpLoss);
+            result = `${loss} Attack Points lost${hpLoss > 0 ? ` · ${hpLoss} excess HP damage` : ""}`;
+          }
+        }
+        const defenseCost = defense && !chargedDefenses.has(target.id) ? psionicDefenseRules[defense].cost : 0;
+        if (defense) chargedDefenses.add(target.id);
+        logs.push({ id: id(), round, segment, attackerId: attack.attacker.id, defenderId: target.id, attackMode: attack.attackMode, defenseMode: defense ?? "Defenseless", range: attack.setup.range, attackCost, defenseCost, loss, result, rolls: resultRoll === null ? [] : [resultRoll], matrixBand, attackerTotalBefore: attack.attackerTotal, attackerAttackBefore: attack.psionics.currentAttackPoints, attackerAttackAfter: Math.max(0, attack.psionics.currentAttackPoints - attack.cost), defenderAttackBefore: defenderPsionics.currentAttackPoints, defenderDefenseBefore: defenderPsionics.currentDefensePoints, hpLoss });
+      }));
+
+      const participants = snapshot.map((entry) => {
+        const psionics = normalizePsionics(entry.psionics);
+        const scheduled = entry.action === "psionic-combat" && entry.declarationRound === round && (entry.psionicCombat?.exchanges ?? 0) >= segment;
+        if (!psionics.enabled && !scheduled) return entry;
+        const nextAttack = Math.max(0, psionics.currentAttackPoints - (attackCosts.get(entry.id) ?? 0) - (attackLosses.get(entry.id) ?? 0));
+        const nextDefense = Math.max(0, psionics.currentDefensePoints - (defenseCosts.get(entry.id) ?? 0) - (defenseLosses.get(entry.id) ?? 0));
+        return { ...entry, currentHp: entry.currentHp - (hpLosses.get(entry.id) ?? 0), psionics: normalizePsionics({ ...psionics, currentAttackPoints: nextAttack, currentDefensePoints: nextDefense }), completedEvents: scheduled ? Array.from(new Set([...entry.completedEvents, completionKey])) : entry.completedEvents, statusNote: scheduled ? `Psionic segment ${segment} resolved simultaneously` : entry.statusNote };
+      });
+      const completedLogs = logs.map((entry) => {
+        if (entry.round !== round || entry.segment !== segment) return entry;
+        const attacker = participants.find((participant) => participant.id === entry.attackerId);
+        const defender = participants.find((participant) => participant.id === entry.defenderId);
+        const attackerPsionics = normalizePsionics(attacker?.psionics);
+        const defenderPsionics = normalizePsionics(defender?.psionics);
+        return { ...entry, attackerAttackAfter: attackerPsionics.currentAttackPoints, defenderAttackAfter: defenderPsionics.currentAttackPoints, defenderDefenseAfter: defenderPsionics.currentDefensePoints };
       });
       const characters = current.characters.map((character) => {
         const linked = participants.find((entry) => entry.characterId === character.id);
@@ -3494,7 +3652,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
         const linked = participants.find((entry) => entry.stableNpcId === npc.id);
         return linked?.psionics ? { ...npc, psionics: normalizePsionics(linked.psionics), currentHp: linked.currentHp } : npc;
       });
-      return { ...current, characters, stableNpcs, segmentedInitiative: { ...current.segmentedInitiative, participants, effects, psionicExchanges: logs.slice(-250) } };
+      return { ...current, characters, stableNpcs, segmentedInitiative: { ...current.segmentedInitiative, participants, effects, psionicExchanges: completedLogs.slice(-250) } };
     });
   }
 
@@ -3515,7 +3673,14 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
     if (participant.action === "psionic-combat") {
       const setup = participant.psionicCombat;
       const complete = participant.completedEvents.includes(`psionic:${resolutionKey(event)}`);
-      return <div className={`event-adjudication psionic-event-control ${restricted ? "control-restricted" : ""}`}><span>{setup ? `${setup.attackMode} · ${setup.range} range · ${setup.targetIds.length} target${setup.targetIds.length === 1 ? "" : "s"}` : "Psionic setup incomplete"}</span><button className="primary-button" disabled={!setup || complete} onClick={() => resolvePsionicExchange(participant, event)}>{complete ? "Exchange resolved" : `Resolve exchange ${event.segment}`}</button></div>;
+      const psionics = normalizePsionics(participant.psionics);
+      const suppressed = setup?.suppressedSegments?.includes(event.segment) ?? false;
+      return <div className={`event-adjudication psionic-event-control ${!hasProgressionAuthority ? "control-restricted" : ""}`}>
+        <div><strong>{setup ? `${setup.attackMode} · ${setup.range} range` : "Psionic setup incomplete"}</strong><span>{setup ? `${setup.targetIds.length} target${setup.targetIds.length === 1 ? "" : "s"} · defense ${setup.defenseMode ?? "automatic"}${suppressed ? " · attack suppressed; defense remains active" : ""}` : ""}</span></div>
+        <div className="psionic-event-pools"><span><small>Current strength</small><b>{psionics.currentAttackPoints + psionics.currentDefensePoints}</b></span><span><small>AP</small><b>{psionics.currentAttackPoints}</b></span><span><small>DP</small><b>{psionics.currentDefensePoints}</b></span></div>
+        <div className="psionic-event-actions"><button type="button" className={suppressed ? "danger-link" : "secondary-button"} disabled={!setup || complete || !hasProgressionAuthority} onClick={() => setup && updateParticipant(participant.id, { psionicCombat: { ...setup, suppressedSegments: suppressed ? (setup.suppressedSegments ?? []).filter((entry) => entry !== event.segment) : [...(setup.suppressedSegments ?? []), event.segment] } })}>{suppressed ? "Clear interruption" : "Physical interruption"}</button><button className="primary-button" disabled={!setup || complete || !hasProgressionAuthority} onClick={() => resolvePsionicSegment(event.segment)}>{complete ? "Segment resolved" : `Resolve all psionics · segment ${event.segment}`}</button></div>
+        <small>All party and enemy psionic attacks in this segment resolve from the same starting pools, then every cost and loss is applied together.</small>
+      </div>;
     }
     if (participant.action === "stand-up") {
       const activeConditions = conditionsForParticipant(participant).filter((effect) => effect.remainingRounds > 0);
@@ -3691,6 +3856,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
               const expanded = expandedCombatantIds.includes(participant.id);
               const currentSpeedFactor = isMeleeAction(participant.action) ? activeSpeedFactor(participant) : null;
               const currentSpeedLabel = currentSpeedFactor === null ? participant.subInitiativeRoll ?? "—" : activeSpeedLabel(participant);
+              const participantPsionics = normalizePsionics(participant.psionics);
               const engagementOpponents = engagedOpponentIds(tracker.engagements, participant.id).flatMap((opponentId) => {
                 const opponent = tracker.participants.find((entry) => entry.id === opponentId);
                 return opponent && participantIsConscious({ ...opponent, currentHp: participantHp(opponent).effective }) ? [opponent] : [];
@@ -3724,6 +3890,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
                         {participant.kind === "npc" && <span className="enemy-stat-inputs npc-stat-inputs"><label>BTHB<input aria-label={`${participant.name} base to-hit bonus`} type="number" value={participant.attackBonus ?? ""} onChange={(event) => updateParticipant(participant.id, { attackBonus: event.target.value === "" ? null : Number(event.target.value) })} placeholder="+0" /></label><label>AC<input type="number" value={participant.armorClass ?? ""} onChange={(event) => updateParticipant(participant.id, { armorClass: event.target.value === "" ? null : Number(event.target.value) })} /></label><label>HP<HpMathInput ariaLabel={`${participant.name} current hit points`} value={participant.currentHp} minimum={-10} onCommit={(currentHp) => setParticipantHp(participant.id, currentHp)} /></label><label>Max<HpMathInput ariaLabel={`${participant.name} maximum hit points`} value={participant.maxHp} minimum={0} onCommit={(maxHp) => setParticipantMaxHp(participant.id, maxHp)} /></label></span>}
                       </span> : <span className="nonplayer-summary"><strong>{participant.name || (participant.kind === "enemy" ? "Unnamed enemy" : "Unnamed NPC")}</strong><small>{participant.kind === "enemy" ? `HD ${participant.hitDice || "—"}` : `BTHB ${signed(participant.attackBonus ?? 0)}`} · AC {participant.armorClass ?? "—"}</small></span>}
                     <span className={`side-badge ${participant.side}`}>{participant.side === "party" ? "Party" : "Opposition"}</span>
+                    {participantPsionics.enabled && <span className="psionic-combatant-strip" aria-label={`${participant.name} current psionics: total strength ${participantPsionics.currentAttackPoints + participantPsionics.currentDefensePoints}, attack points ${participantPsionics.currentAttackPoints} of ${participantPsionics.maxAttackPoints}, defense points ${participantPsionics.currentDefensePoints} of ${participantPsionics.maxDefensePoints}`}><span><small>PSI</small><b>{participantPsionics.currentAttackPoints + participantPsionics.currentDefensePoints}</b></span><span><small>AP</small><b>{participantPsionics.currentAttackPoints}/{participantPsionics.maxAttackPoints}</b></span><span><small>DP</small><b>{participantPsionics.currentDefensePoints}/{participantPsionics.maxDefensePoints}</b></span></span>}
                     {participant.side === "opposition" && !defeatedEnemy && <span className="identity-kind-label enemy-label">Enemy</span>}
                     {exsanguinated
                       ? <span className="combat-state-label" role="status">☠ Dead</span>
@@ -3772,13 +3939,13 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
                     </div></details>
                     <details className="unarmed-override-editor psionics-setup-editor"><summary><span><b>PSIONICS</b><small>Attack/defense pools and known combat modes</small></span><i aria-hidden>▸</i></summary><div>
                       {(() => { const psionics = normalizePsionics(participant.psionics); return <>
-                        <fieldset><legend>Psionic status</legend><label><input type="checkbox" checked={psionics.enabled} onChange={(event) => updatePsionics(participant, { enabled: event.target.checked })} />Psionic combatant</label>{psionics.enabled && <small>Mind Blank is automatic. Add other known modes below.</small>}</fieldset>
-                        <label>Attack points<input type="number" min="0" disabled={!psionics.enabled} value={psionics.currentAttackPoints} onChange={(event) => updatePsionics(participant, { currentAttackPoints: Number(event.target.value) || 0 })} /></label>
+                        <fieldset><legend>Psionic status</legend><label><input type="checkbox" checked={psionics.enabled} onChange={(event) => updatePsionics(participant, { enabled: event.target.checked })} />Psionic combatant</label>{psionics.enabled && <small>Mind Blank is automatic. Current total strength is AP + DP.</small>}</fieldset>
+                        <label>Attack points <PsionicTermInfoButton term="attackPoints" /><input type="number" min="0" disabled={!psionics.enabled} value={psionics.currentAttackPoints} onChange={(event) => updatePsionics(participant, { currentAttackPoints: Number(event.target.value) || 0 })} /></label>
                         <label>Attack maximum<input type="number" min="0" disabled={!psionics.enabled} value={psionics.maxAttackPoints} onChange={(event) => updatePsionics(participant, { maxAttackPoints: Number(event.target.value) || 0 })} /></label>
-                        <label>Defense points<input type="number" min="0" disabled={!psionics.enabled} value={psionics.currentDefensePoints} onChange={(event) => updatePsionics(participant, { currentDefensePoints: Number(event.target.value) || 0 })} /></label>
+                        <label>Defense points <PsionicTermInfoButton term="defensePoints" /><input type="number" min="0" disabled={!psionics.enabled} value={psionics.currentDefensePoints} onChange={(event) => updatePsionics(participant, { currentDefensePoints: Number(event.target.value) || 0 })} /></label>
                         <label>Defense maximum<input type="number" min="0" disabled={!psionics.enabled} value={psionics.maxDefensePoints} onChange={(event) => updatePsionics(participant, { maxDefensePoints: Number(event.target.value) || 0 })} /></label>
-                        <fieldset disabled={!psionics.enabled}><legend>Attack modes</legend>{psionicAttackModes.map((mode) => <label key={mode}><input type="checkbox" checked={psionics.attackModes.includes(mode)} onChange={(event) => updatePsionics(participant, { attackModes: event.target.checked ? [...psionics.attackModes, mode] : psionics.attackModes.filter((entry) => entry !== mode) })} />{mode}</label>)}</fieldset>
-                        <fieldset disabled={!psionics.enabled}><legend>Defense modes</legend>{psionicDefenseModes.map((mode) => mode === "Mind Blank" ? <label key={mode}><input type="checkbox" checked disabled />{mode} · automatic</label> : <label key={mode}><input type="checkbox" checked={psionics.defenseModes.includes(mode)} onChange={(event) => updatePsionics(participant, { defenseModes: event.target.checked ? [...psionics.defenseModes, mode] : psionics.defenseModes.filter((entry) => entry !== mode) })} />{mode}</label>)}</fieldset>
+                        <fieldset disabled={!psionics.enabled}><legend>Attack modes <PsionicTermInfoButton term="attackModes" /></legend><div className="psionic-choice-grid">{psionicAttackModes.map((mode) => <div className="psionic-mode-choice" key={mode}><label><input type="checkbox" checked={psionics.attackModes.includes(mode)} onChange={(event) => updatePsionics(participant, { attackModes: event.target.checked ? [...psionics.attackModes, mode] : psionics.attackModes.filter((entry) => entry !== mode) })} /><span>{mode}</span></label><PsionicAttackModeTooltip mode={mode}>ⓘ</PsionicAttackModeTooltip></div>)}</div></fieldset>
+                        <fieldset disabled={!psionics.enabled}><legend>Defense modes <PsionicTermInfoButton term="defenseModes" /></legend><div className="psionic-choice-grid">{psionicDefenseModes.map((mode) => <div className="psionic-mode-choice" key={mode}>{mode === "Mind Blank" ? <label><input type="checkbox" checked disabled /><span>{mode} · automatic</span></label> : <label><input type="checkbox" checked={psionics.defenseModes.includes(mode)} onChange={(event) => updatePsionics(participant, { defenseModes: event.target.checked ? [...psionics.defenseModes, mode] : psionics.defenseModes.filter((entry) => entry !== mode) })} /><span>{mode}</span></label>}<PsionicDefenseModeTooltip mode={mode}>ⓘ</PsionicDefenseModeTooltip></div>)}</div></fieldset>
                       </>; })()}
                     </div></details>
                   </div></details>}
@@ -3794,14 +3961,16 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
                     {participant.action === "psionic-combat" && participant.psionicCombat && (() => {
                       const psionic = normalizePsionics(participant.psionics);
                       const setup = participant.psionicCombat;
-                      const targets = targetsForAction(participant, "psionic-combat").filter((target) => target.side !== participant.side);
-                      return <fieldset className="psionic-combat-declaration"><legend>Psionic exchange</legend>
-                        <label>Attack mode<select value={setup.attackMode ?? ""} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, attackMode: event.target.value as typeof psionic.attackModes[number], useArea: event.target.value === "Id Insinuation" || event.target.value === "Psionic Blast" } })}>{psionic.attackModes.map((mode) => <option value={mode} key={mode}>{mode} · {psionicAttackRules[mode].cost} AP · {psionicAttackRules[mode].area}</option>)}</select></label>
-                        <label>Range<select value={setup.range} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, range: event.target.value as typeof setup.range } })}><option value="short">Short</option><option value="medium">Medium · 20% loss</option><option value="long" disabled={setup.attackMode === "Psychic Crush"}>Long · lower band / 20% loss</option></select></label>
-                        <label>Exchanges<input type="number" min="1" max="10" value={setup.exchanges} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, exchanges: Math.max(1, Math.min(10, Number(event.target.value) || 1)) } })} /></label>
+                      const targets = targetsForAction(participant, "psionic-combat").filter((target) => target.side !== participant.side && (normalizePsionics(target.psionics).enabled || (setup.attackMode === "Psionic Blast" && !participantPsionicEffects(target, tracker.effects).some((effect) => /insanity|insane/i.test(effect.name)))));
+                      const allowedDefenses = setup.attackMode === "Psychic Crush" ? psionic.defenseModes.filter((mode) => mode === "Thought Shield") : psionic.defenseModes;
+                      return <fieldset className="psionic-combat-declaration"><legend>Psionic combat</legend>
+                        <div className="psionic-declaration-pools"><span><small>Current strength <PsionicTermInfoButton term="currentStrength" /></small><b>{psionic.currentAttackPoints + psionic.currentDefensePoints}</b></span><span><small>Attack Points</small><b>{psionic.currentAttackPoints}/{psionic.maxAttackPoints}</b></span><span><small>Defense Points</small><b>{psionic.currentDefensePoints}/{psionic.maxDefensePoints}</b></span></div>
+                        <label>Attack mode<span className="psionic-select-with-info"><select value={setup.attackMode ?? ""} disabled={locked} onChange={(event) => { const attackMode = event.target.value as typeof psionic.attackModes[number]; const rangeIndex = setup.range === "short" ? 0 : setup.range === "medium" ? 1 : 2; const range = psionicAttackRules[attackMode].range[rangeIndex] === null ? "short" : setup.range; const targetIds = setup.targetIds.filter((targetId) => { const target = tracker.participants.find((entry) => entry.id === targetId); return target && (attackMode === "Psionic Blast" || normalizePsionics(target.psionics).enabled); }); updateParticipant(participant.id, { psionicCombat: { ...setup, attackMode, range, targetIds, defenseMode: attackMode === "Psychic Crush" && setup.defenseMode !== "Thought Shield" ? null : setup.defenseMode ?? null, useArea: attackMode === "Id Insinuation" || attackMode === "Psionic Blast" }, targetId: targetIds[0] ?? null, ready: targetIds.length > 0 }); }}>{psionic.attackModes.map((mode) => <option value={mode} key={mode}>{mode}</option>)}</select>{setup.attackMode && <PsionicAttackModeTooltip mode={setup.attackMode}>ⓘ</PsionicAttackModeTooltip>}</span></label>
+                        <label>Range<span className="psionic-select-with-info"><select value={setup.range} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, range: event.target.value as typeof setup.range } })}><option value="short">Short</option><option value="medium" disabled={setup.attackMode ? psionicAttackRules[setup.attackMode].range[1] === null : false}>Medium · loss −20%</option><option value="long" disabled={setup.attackMode ? psionicAttackRules[setup.attackMode].range[2] === null : false}>Long · band −1, loss −20%</option></select><PsionicTermInfoButton term="range" /></span></label>
+                        <label>Through segment <PsionicTermInfoButton term="segments" /><input type="number" min="1" max="10" value={setup.exchanges} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, exchanges: Math.max(1, Math.min(10, Number(event.target.value) || 1)) } })} /><small>Exchanges occur in segments 1–{setup.exchanges}.</small></label>
+                        <label>Defense<span className="psionic-select-with-info"><select value={setup.defenseMode ?? ""} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, defenseMode: event.target.value ? event.target.value as PsionicDefenseMode : null } })}><option value="">Automatic · best affordable</option>{allowedDefenses.map((mode) => <option value={mode} key={mode}>{mode} · {psionicDefenseRules[mode].cost} DP</option>)}</select>{setup.defenseMode && <PsionicDefenseModeTooltip mode={setup.defenseMode}>ⓘ</PsionicDefenseModeTooltip>}</span>{setup.attackMode === "Psychic Crush" && <small>{allowedDefenses.length ? "Psychic Crush permits Thought Shield only." : "No Thought Shield known: this attacker is defenseless while crushing."}</small>}</label>
                         <fieldset><legend>{setup.useArea ? "Area targets" : "Target"}</legend>{targets.map((target) => <label key={target.id}><input type={setup.useArea ? "checkbox" : "radio"} name={`psionic-target-${participant.id}`} checked={setup.targetIds.includes(target.id)} disabled={locked} onChange={(event) => { const targetIds = setup.useArea ? (event.target.checked ? [...setup.targetIds, target.id] : setup.targetIds.filter((id) => id !== target.id)) : [target.id]; updateParticipant(participant.id, { psionicCombat: { ...setup, targetIds }, targetId: targetIds[0] ?? null, ready: targetIds.length > 0 }); }} />{targetOptionLabel(target)}{normalizePsionics(target.psionics).enabled ? " · psionic" : " · non-psionic"}</label>)}</fieldset>
-                        {viewerHasGmPermissions && setup.targetIds.map((targetId) => { const target = tracker.participants.find((entry) => entry.id === targetId); const targetPsionic = normalizePsionics(target?.psionics); return target && targetPsionic.enabled ? <label key={`defense-${targetId}`}>Defense · {target.name}<select value={setup.defenseOverrides[targetId] ?? ""} disabled={locked} onChange={(event) => updateParticipant(participant.id, { psionicCombat: { ...setup, defenseOverrides: { ...setup.defenseOverrides, [targetId]: event.target.value ? event.target.value as PsionicDefenseMode : null } } })}><option value="">Auto · best available</option>{targetPsionic.defenseModes.map((mode) => <option value={mode} key={mode}>{mode} · {psionicDefenseRules[mode].cost} DP</option>)}</select></label> : null; })}
-                        <small>One exchange is added for each occupied segment. Defenses default to the matrix-favorable known mode; GM may override at resolution.</small>
+                        <small className="psionic-segment-explanation"><b>How timing works:</b> psionic combat does not wait for the initiative d6. Every declared party and enemy attack in the same segment resolves simultaneously. Costs and losses are deducted only after all attacks in that segment are determined.</small>
                       </fieldset>;
                     })()}
                     {tracker.phase === "declaration" && <details className="participant-condition-picker">
@@ -3908,7 +4077,13 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
 
         <details className="action-guide"><summary>Action explanations</summary><div>{(Object.keys(actionHelp) as Array<Exclude<SegmentedAction, "">>).map((action) => <article key={action}><span className="emoji-glyph compact">{actionEmojis[action]}</span><span><strong>{actionLabels[action]}</strong><small>{actionHelp[action]}</small>{actionPages[action] && <em>{actionPages[action]}</em>}</span></article>)}</div></details>
 
-        {(tracker.psionicExchanges?.length ?? 0) > 0 && <details className="psionic-combat-log"><summary>Psionic combat log <span>{tracker.psionicExchanges?.length}</span></summary><div>{[...(tracker.psionicExchanges ?? [])].slice(-20).reverse().map((entry) => { const attacker = tracker.participants.find((participant) => participant.id === entry.attackerId); const defender = tracker.participants.find((participant) => participant.id === entry.defenderId); return <article key={entry.id}><strong>S{entry.segment} · {attacker?.name ?? "Unknown"} → {defender?.name ?? "Unknown"}</strong><span>{entry.attackMode} vs {entry.defenseMode ?? "non-psionic"} · {entry.range}</span><small>{entry.attackCost} AP · {entry.defenseCost} DP · {entry.result ?? "no result"}{entry.rolls.length ? ` · rolls ${entry.rolls.join(", ")}` : ""}</small></article>; })}</div></details>}
+        {hasPsionicCombatant && <details className="psionic-combat-log"><summary><span>Psionic combat log<small>Segment-by-segment mental exchanges</small></span><b>{tracker.psionicExchanges?.length ?? 0}</b></summary><div>{(tracker.psionicExchanges?.length ?? 0) === 0 ? <p className="compact-empty">No psionic exchange has resolved yet.</p> : [...(tracker.psionicExchanges ?? [])].slice(-30).reverse().map((entry) => { const attacker = tracker.participants.find((participant) => participant.id === entry.attackerId); const defender = tracker.participants.find((participant) => participant.id === entry.defenderId); const hostile = attacker?.side === "opposition"; const saveModifier = entry.saveModifier ?? 0; const rollText = entry.saveTarget !== undefined && entry.saveTarget !== null ? `Save d20 ${entry.rolls[0] ?? "—"}${saveModifier ? ` ${signed(saveModifier)}` : ""} vs ${entry.saveTarget}${entry.rolls[1] ? ` · effect d100 ${entry.rolls[1]}` : ""}` : entry.rolls.length ? `Kill check d100 ${entry.rolls[0]}` : "No roll"; return <article className={hostile ? "opposition-attack" : "party-attack"} key={entry.id}>
+            <header><span>Round {entry.round} · Segment {entry.segment}</span><b>{hostile ? "Opposition attack" : "Party attack"}</b></header>
+            <div className="psionic-log-matchup"><strong>{attacker?.name ?? "Unknown attacker"}</strong><span>attacks</span><strong>{defender?.name ?? "Unknown target"}</strong></div>
+            <div className="psionic-log-modes"><span><small>Attack</small><PsionicAttackModeTooltip mode={entry.attackMode}>{entry.attackMode}</PsionicAttackModeTooltip></span><span><small>Defense</small>{entry.defenseMode && entry.defenseMode !== "Defenseless" ? <PsionicDefenseModeTooltip mode={entry.defenseMode}>{entry.defenseMode}</PsionicDefenseModeTooltip> : <b>{entry.defenseMode ?? "Non-psionic save"}</b>}</span><span><small>Range / matrix</small><b>{entry.range} · {entry.matrixBand ?? "legacy entry"}</b></span></div>
+            <div className="psionic-log-accounting"><span><small>Attacker AP</small><b>{entry.attackerAttackBefore ?? "—"} → {entry.attackerAttackAfter ?? "—"}</b><em>{entry.attackCost ? `−${entry.attackCost} cost` : "cost paid once for area"}</em></span>{entry.defenderDefenseBefore !== undefined && <span><small>Defender DP</small><b>{entry.defenderDefenseBefore} → {entry.defenderDefenseAfter ?? "—"}</b><em>{entry.defenseCost ? `−${entry.defenseCost} defense` : ""}{entry.loss ? `${entry.defenseCost ? " · " : ""}−${entry.loss} loss` : ""}</em></span>}{entry.defenderAttackBefore !== undefined && <span><small>Defender AP</small><b>{entry.defenderAttackBefore} → {entry.defenderAttackAfter ?? "—"}</b><em>{entry.hpLoss ? `${entry.hpLoss} excess HP damage` : ""}</em></span>}</div>
+            <footer><strong>{entry.result ?? "No result"}</strong><span>{rollText}</span></footer>
+          </article>; })}</div></details>}
       </section>
 
       <section className="panel segmented-round-controls">

@@ -993,7 +993,9 @@ details[open] > summary::after { content: "Collapse"; }
 }
 /* Shared weapon-rule affordances stay secondary to ordinary play controls. */
 .weapon-name-trigger,
-.equipment-info-trigger {
+.equipment-info-trigger,
+.psionic-rule-trigger,
+.psionic-info-trigger {
   appearance: none;
   border: 0;
   border-bottom: 1px dotted currentColor;
@@ -1016,6 +1018,89 @@ details[open] > summary::after { content: "Collapse"; }
   justify-content: center;
   min-width: 30px;
 }
+
+.psionic-rule-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.psionic-rule-trigger > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.psionic-rule-trigger i {
+  color: var(--accent);
+  font-size: .72rem;
+  font-style: normal;
+}
+
+.psionic-info-trigger {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: .72rem;
+  text-align: center;
+}
+
+.psionic-rules-card > strong {
+  display: block;
+  color: var(--accent);
+  font-size: .9rem;
+  letter-spacing: .04em;
+  margin-bottom: 7px;
+  text-transform: uppercase;
+}
+
+.psionic-rules-card > p {
+  font-size: .88rem;
+  line-height: 1.45;
+  margin: 0 0 9px;
+}
+
+.psionic-rule-rows {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.psionic-rule-rows > div {
+  display: grid;
+  grid-template-columns: 105px minmax(0, 1fr);
+  gap: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 5px;
+}
+
+.psionic-rule-rows dt {
+  color: var(--text-secondary);
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.psionic-rule-rows dd {
+  font-size: .8rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.psionic-rules-card > small {
+  display: block;
+  color: var(--text-secondary);
+  font-size: .76rem;
+  line-height: 1.4;
+  margin-top: 8px;
+}
+
+.psionic-rules-card.term-card > p { margin-bottom: 0; }
 
 .weapon-rules-popover {
   background: var(--bg-surface-raised);
@@ -1105,6 +1190,13 @@ details[open] > summary::after { content: "Collapse"; }
   .equipment-rules-key dl > div {
     grid-template-columns: 92px minmax(0, 1fr);
   }
+
+  .psionic-info-trigger {
+    width: 34px;
+    height: 34px;
+  }
+
+  .psionic-rule-rows > div { grid-template-columns: 92px minmax(0, 1fr); }
 }
 
 .combatant-setup-panel {

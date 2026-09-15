@@ -53,7 +53,7 @@ function WeaponCard({ rules }: { rules: WeaponRules }) {
   </div>;
 }
 
-function PopoverButton({ className, label, children, panel }: { className: string; label: string; children: ReactNode; panel: ReactNode }) {
+export function RulesPopoverButton({ className, label, children, panel }: { className: string; label: string; children: ReactNode; panel: ReactNode }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   const popover = useRef<HTMLDivElement>(null);
@@ -76,13 +76,13 @@ function PopoverButton({ className, label, children, panel }: { className: strin
 export function WeaponRulesTooltip({ rulesId, name, children }: { rulesId?: string | null; name?: string | null; children?: ReactNode }) {
   const rules = weaponRulesById(rulesId) ?? weaponRulesForName(name);
   if (!rules) return <>{children ?? name}</>;
-  return <PopoverButton className="weapon-name-trigger" label={`${rules.name} weapon rules`} panel={<WeaponCard rules={rules} />}>{children ?? name ?? rules.name}</PopoverButton>;
+  return <RulesPopoverButton className="weapon-name-trigger" label={`${rules.name} weapon rules`} panel={<WeaponCard rules={rules} />}>{children ?? name ?? rules.name}</RulesPopoverButton>;
 }
 
 export function EquipmentRulesInfoButton() {
-  return <PopoverButton className="equipment-info-trigger" label="Equipment rules key" panel={<div className="equipment-rules-key"><strong>Weapon information</strong><dl><div><dt>Damage S/M</dt><dd>Damage against small or man-sized targets.</dd></div><div><dt>Damage L</dt><dd>Damage against large targets.</dd></div><div><dt>Speed Factor</dt><dd>Breaks segment ties and may add attacks in established melee.</dd></div><div><dt>Length</dt><dd>Weapon reach for charge or closing first strike.</dd></div><div><dt>Space Required</dt><dd>Room needed to wield the weapon.</dd></div><div><dt>Damage Type</dt><dd>Bludgeoning, piercing, slashing, or a combination.</dd></div><div><dt>Armour Adjustment</dt><dd>Contextual to-hit modifier against physical armour.</dd></div></dl></div>}>ⓘ</PopoverButton>;
+  return <RulesPopoverButton className="equipment-info-trigger" label="Equipment rules key" panel={<div className="equipment-rules-key"><strong>Weapon information</strong><dl><div><dt>Damage S/M</dt><dd>Damage against small or man-sized targets.</dd></div><div><dt>Damage L</dt><dd>Damage against large targets.</dd></div><div><dt>Speed Factor</dt><dd>Breaks segment ties and may add attacks in established melee.</dd></div><div><dt>Length</dt><dd>Weapon reach for charge or closing first strike.</dd></div><div><dt>Space Required</dt><dd>Room needed to wield the weapon.</dd></div><div><dt>Damage Type</dt><dd>Bludgeoning, piercing, slashing, or a combination.</dd></div><div><dt>Armour Adjustment</dt><dd>Contextual to-hit modifier against physical armour.</dd></div></dl></div>}>ⓘ</RulesPopoverButton>;
 }
 
 export function NaturalSpeedInfoButton() {
-  return <PopoverButton className="equipment-info-trigger" label="Natural attack speed" panel={<div className="equipment-rules-key"><strong>Natural speed</strong><dl><div><dt>Fast — SF 2</dt><dd>Quick claw, bite, or agile strike.</dd></div><div><dt>Normal — SF 6</dt><dd>Ordinary bite, horn, or slam.</dd></div><div><dt>Slow — SF 11</dt><dd>Giant fist, tail smash, or ponderous limb.</dd></div></dl><small>Used for weapon-speed comparisons once melee is established.</small></div>}>ⓘ</PopoverButton>;
+  return <RulesPopoverButton className="equipment-info-trigger" label="Natural attack speed" panel={<div className="equipment-rules-key"><strong>Natural speed</strong><dl><div><dt>Fast — SF 2</dt><dd>Quick claw, bite, or agile strike.</dd></div><div><dt>Normal — SF 6</dt><dd>Ordinary bite, horn, or slam.</dd></div><div><dt>Slow — SF 11</dt><dd>Giant fist, tail smash, or ponderous limb.</dd></div></dl><small>Used for weapon-speed comparisons once melee is established.</small></div>}>ⓘ</RulesPopoverButton>;
 }
