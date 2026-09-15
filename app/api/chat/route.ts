@@ -85,7 +85,8 @@ export async function POST(request: Request) {
     const visibility = requestedVisibility === "private" || requestedVisibility === "whisper" ? requestedVisibility : "public";
     const recipientClientId = cleanText(payload.recipientClientId, 80) || null;
     const recipientName = cleanText(payload.recipientName, 80) || null;
-    const tone = cleanText(payload.tone, 16) === "hostile" ? "hostile" : null;
+    const requestedTone = cleanText(payload.tone, 24);
+    const tone = requestedTone === "hostile" || requestedTone === "psionic" || requestedTone === "psionic-hostile" ? requestedTone : null;
     if (!content) return Response.json({ error: "Chat messages cannot be empty." }, { status: 400 });
     if (visibility === "whisper" && (!authorIsGm || !recipientClientId)) return Response.json({ error: "Select a player before sending a GM whisper." }, { status: 400 });
 

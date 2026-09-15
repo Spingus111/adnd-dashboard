@@ -76,3 +76,26 @@ test("psionic combat UI exposes rules help and resolves both sides simultaneousl
   assert.match(creation, /PsionicDisciplineTooltip/);
   assert.match(creation, /PsionicTermInfoButton term="potential"/);
 });
+
+test("psionic recovery, editable pools, interactive help, and combat reporting stay integrated", () => {
+  const creation = fs.readFileSync("app/character-sheet-panel.tsx", "utf8");
+  const combat = fs.readFileSync("app/segmented-initiative-panel.tsx", "utf8");
+  const tooltip = fs.readFileSync("app/weapon-rules-tooltip.tsx", "utf8");
+  const chat = fs.readFileSync("app/chat-drawer.tsx", "utf8");
+  const chatApi = fs.readFileSync("app/api/chat/route.ts", "utf8");
+  const css = fs.readFileSync("app/globals.css", "utf8");
+
+  assert.match(creation, /restAndRecoverPsionics/);
+  assert.match(creation, />Rest and prepare<\/button>/);
+  assert.match(creation, /maximum=\{psionics\.maxAttackPoints\}[^\n]*current Attack Points/);
+  assert.match(creation, /maximum=\{psionics\.maxDefensePoints\}[^\n]*current Defense Points/);
+  assert.match(creation, /open=\{setupOpen\} onToggle=/);
+  assert.match(creation, /set\(\{ determination: "established" \}\); setSetupOpen\(false\)/);
+  assert.match(tooltip, /onMouseEnter=\{show\}/);
+  assert.match(tooltip, /onMouseLeave=\{hideSoon\}/);
+  assert.match(css, /\.declaration-controls > \.psionic-combat-declaration \+ \.participant-condition-picker/);
+  assert.match(combat, /Clear psionic log/);
+  assert.match(combat, /sendChatAction\(\{[\s\S]*tone: hostile \? "psionic-hostile" : "psionic"/);
+  assert.match(chat, /psionic-hostile/);
+  assert.match(chatApi, /requestedTone === "psionic-hostile"/);
+});

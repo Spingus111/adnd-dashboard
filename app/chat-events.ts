@@ -5,7 +5,7 @@ export type ChatActionDetail =
   | { kind: "equipped-attack"; characterId: string }
   | { kind: "derived"; characterId: string; statIndex: number; key: string }
   | { kind: "external-roll"; label: string; roll: "attack" | "save"; modifier?: number; target?: number; tone?: "hostile" }
-  | { kind: "combat-result"; content: string; rollDetail?: string; tone?: "hostile" }
+  | { kind: "combat-result"; content: string; rollDetail?: string; tone?: "hostile" | "psionic" | "psionic-hostile"; emoji?: string; color?: string }
   | { kind: "item"; label: string; quantity?: number; valueGp?: number | null };
 
 export const CHAT_ACTION_EVENT = "adnd-chat-action";

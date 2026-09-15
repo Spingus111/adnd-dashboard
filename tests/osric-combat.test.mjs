@@ -70,12 +70,12 @@ test("Dexterity moves missile initiative earlier or later and clamps the segment
   assert.equal(missileInitiativeSegment(6, 3), 9);
 });
 
-test("unhelmed enemy headshots only follow qualifying 10+ misses against armor", () => {
-  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: false, ascendingArmorClass: 15, attackRoll: 10, ordinaryHit: false, automaticHit: false }), true);
-  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: true, ascendingArmorClass: 15, attackRoll: 10, ordinaryHit: false, automaticHit: false }), false);
-  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: false, ascendingArmorClass: 10, attackRoll: 10, ordinaryHit: false, automaticHit: false }), false);
-  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: false, ascendingArmorClass: 15, attackRoll: 9, ordinaryHit: false, automaticHit: false }), false);
-  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: false, ascendingArmorClass: 15, attackRoll: 10, ordinaryHit: true, automaticHit: false }), false);
+test("unhelmed enemy headshots only follow attacks that reach ascending AC 10", () => {
+  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: false, ascendingArmorClass: 15, attackRoll: 10, attackTotal: 10, ordinaryHit: false, automaticHit: false }), true);
+  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: true, ascendingArmorClass: 15, attackRoll: 10, attackTotal: 10, ordinaryHit: false, automaticHit: false }), false);
+  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: false, ascendingArmorClass: 15, attackRoll: 9, attackTotal: 9, ordinaryHit: false, automaticHit: false }), false);
+  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: false, ascendingArmorClass: 15, attackRoll: 1, attackTotal: 10, ordinaryHit: false, automaticHit: false }), false);
+  assert.equal(canCheckUnhelmedHeadshot({ targetIsEnemy: true, armoredHead: false, ascendingArmorClass: 10, attackRoll: 10, attackTotal: 10, ordinaryHit: true, automaticHit: false }), true);
 });
 
 test("natural twenty adds five to attack resolution and natural one always fails", () => {

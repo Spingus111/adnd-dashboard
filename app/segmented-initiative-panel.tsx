@@ -8,6 +8,7 @@ import { emptyCampaign, type
   CombatEventResolution,
   InventoryStack,
   PsionicDefenseMode,
+  PsionicExchangeLog,
   SaveBlock,
   SegmentedAction,
   SegmentedInitiativeState,
@@ -346,6 +347,20 @@ function signed(value: number) {
   return value >= 0 ? `+${value}` : String(value);
 }
 
+function psionicLogRollText(entry: PsionicExchangeLog) {
+  const saveModifier = entry.saveModifier ?? 0;
+  if (entry.saveTarget !== undefined && entry.saveTarget !== null) return `Save d20 ${entry.rolls[0] ?? "—"}${saveModifier ? ` ${signed(saveModifier)}` : ""} vs ${entry.saveTarget}${entry.rolls[1] ? ` · effect d100 ${entry.rolls[1]}` : ""}`;
+  return entry.rolls.length ? `Kill check d100 ${entry.rolls[0]}` : "No roll";
+}
+
+function psionicChatContent(entry: PsionicExchangeLog, attackerName: string, defenderName: string, hostile: boolean) {
+  const attackCost = entry.attackCost ? ` · −${entry.attackCost} cost` : "";
+  const defenseChange = entry.defenderDefenseBefore === undefined ? "" : `\n🛡️ Defender DP ${entry.defenderDefenseBefore} → ${entry.defenderDefenseAfter ?? "—"}${entry.defenseCost ? ` · −${entry.defenseCost} defense` : ""}${entry.loss ? ` · −${entry.loss} loss` : ""}`;
+  const attackChange = entry.defenderAttackBefore === undefined ? "" : `\n🧠 Defender AP ${entry.defenderAttackBefore} → ${entry.defenderAttackAfter ?? "—"}${entry.hpLoss ? ` · ${entry.hpLoss} excess HP damage` : ""}`;
+  const roll = psionicLogRollText(entry);
+  return `🧠 PSIONIC EXCHANGE · Round ${entry.round} · Segment ${entry.segment}\n${hostile ? "🟣" : "🔵"} ${attackerName} → ${defenderName}\n⚡ ${entry.attackMode} vs 🛡️ ${entry.defenseMode ?? "Non-psionic save"} · ${entry.range} range\n📊 Attacker AP ${entry.attackerAttackBefore ?? "—"} → ${entry.attackerAttackAfter ?? "—"}${attackCost}${defenseChange}${attackChange}\n✨ RESULT — ${entry.result ?? "No result"}${roll === "No roll" ? "" : `\n🎲 ${roll}`}`;
+}
+
 function markedNaturalRoll(roll: number) {
   return roll === 20 ? "[[max:20]]" : roll === 1 ? "[[min:1]]" : String(roll);
 }
@@ -625,6 +640,7 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const collapseIdentityKeyRef = useRef("");
   const seenCombatantIdsRef = useRef<Set<string>>(new Set());
+  const seenPsionicExchangeIdsRef = useRef<Set<string> | null>(null);
   const viewerHasGmPermissions = partyChatRoleHasGmPermissions(viewerRole);
   const combatIdentity: CombatIdentity = { role: viewerRole, dockedCharacterIds: viewerDockedCharacterIds, clientId: viewerClientId };
   const hasProgressionAuthority = canControlCombatProgression(combatIdentity);
@@ -638,6 +654,30 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
     const left = current.offsetLeft - Math.max(0, (scroller.clientWidth - current.offsetWidth) / 2);
     scroller.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
   }, [tracker.currentSegment, tracker.phase]);
+
+  useEffect(() => {
+    const entries = tracker.psionicExchanges ?? [];
+    if (seenPsionicExchangeIdsRef.current === null) {
+      seenPsionicExchangeIdsRef.current = new Set(entries.map((entry) => entry.id));
+      return;
+    }
+    const fresh = entries.filter((entry) => !seenPsionicExchangeIdsRef.current?.has(entry.id));
+    entries.forEach((entry) => seenPsionicExchangeIdsRef.current?.add(entry.id));
+    if (!hasProgressionAuthority) return;
+    fresh.forEach((entry) => {
+      const attacker = tracker.participants.find((participant) => participant.id === entry.attackerId);
+      const defender = tracker.participants.find((participant) => participant.id === entry.defenderId);
+      const hostile = attacker?.side === "opposition";
+      sendChatAction({
+        kind: "combat-result",
+        content: psionicChatContent(entry, attacker?.name ?? "Unknown attacker", defender?.name ?? "Unknown target", hostile),
+        rollDetail: psionicLogRollText(entry),
+        tone: hostile ? "psionic-hostile" : "psionic",
+        emoji: "🧠",
+        color: hostile ? "#6f3b9f" : "#405f8f",
+      });
+    });
+  }, [hasProgressionAuthority, tracker.participants, tracker.psionicExchanges]);
 
   useEffect(() => {
     setCampaign((current) => {
@@ -4077,11 +4117,11 @@ export default function SegmentedInitiativePanel({ campaign, setCampaign }: Prop
 
         <details className="action-guide"><summary>Action explanations</summary><div>{(Object.keys(actionHelp) as Array<Exclude<SegmentedAction, "">>).map((action) => <article key={action}><span className="emoji-glyph compact">{actionEmojis[action]}</span><span><strong>{actionLabels[action]}</strong><small>{actionHelp[action]}</small>{actionPages[action] && <em>{actionPages[action]}</em>}</span></article>)}</div></details>
 
-        {hasPsionicCombatant && <details className="psionic-combat-log"><summary><span>Psionic combat log<small>Segment-by-segment mental exchanges</small></span><b>{tracker.psionicExchanges?.length ?? 0}</b></summary><div>{(tracker.psionicExchanges?.length ?? 0) === 0 ? <p className="compact-empty">No psionic exchange has resolved yet.</p> : [...(tracker.psionicExchanges ?? [])].slice(-30).reverse().map((entry) => { const attacker = tracker.participants.find((participant) => participant.id === entry.attackerId); const defender = tracker.participants.find((participant) => participant.id === entry.defenderId); const hostile = attacker?.side === "opposition"; const saveModifier = entry.saveModifier ?? 0; const rollText = entry.saveTarget !== undefined && entry.saveTarget !== null ? `Save d20 ${entry.rolls[0] ?? "—"}${saveModifier ? ` ${signed(saveModifier)}` : ""} vs ${entry.saveTarget}${entry.rolls[1] ? ` · effect d100 ${entry.rolls[1]}` : ""}` : entry.rolls.length ? `Kill check d100 ${entry.rolls[0]}` : "No roll"; return <article className={hostile ? "opposition-attack" : "party-attack"} key={entry.id}>
-            <header><span>Round {entry.round} · Segment {entry.segment}</span><b>{hostile ? "Opposition attack" : "Party attack"}</b></header>
-            <div className="psionic-log-matchup"><strong>{attacker?.name ?? "Unknown attacker"}</strong><span>attacks</span><strong>{defender?.name ?? "Unknown target"}</strong></div>
-            <div className="psionic-log-modes"><span><small>Attack</small><PsionicAttackModeTooltip mode={entry.attackMode}>{entry.attackMode}</PsionicAttackModeTooltip></span><span><small>Defense</small>{entry.defenseMode && entry.defenseMode !== "Defenseless" ? <PsionicDefenseModeTooltip mode={entry.defenseMode}>{entry.defenseMode}</PsionicDefenseModeTooltip> : <b>{entry.defenseMode ?? "Non-psionic save"}</b>}</span><span><small>Range / matrix</small><b>{entry.range} · {entry.matrixBand ?? "legacy entry"}</b></span></div>
-            <div className="psionic-log-accounting"><span><small>Attacker AP</small><b>{entry.attackerAttackBefore ?? "—"} → {entry.attackerAttackAfter ?? "—"}</b><em>{entry.attackCost ? `−${entry.attackCost} cost` : "cost paid once for area"}</em></span>{entry.defenderDefenseBefore !== undefined && <span><small>Defender DP</small><b>{entry.defenderDefenseBefore} → {entry.defenderDefenseAfter ?? "—"}</b><em>{entry.defenseCost ? `−${entry.defenseCost} defense` : ""}{entry.loss ? `${entry.defenseCost ? " · " : ""}−${entry.loss} loss` : ""}</em></span>}{entry.defenderAttackBefore !== undefined && <span><small>Defender AP</small><b>{entry.defenderAttackBefore} → {entry.defenderAttackAfter ?? "—"}</b><em>{entry.hpLoss ? `${entry.hpLoss} excess HP damage` : ""}</em></span>}</div>
+        {hasPsionicCombatant && <details className="psionic-combat-log"><summary><span>Psionic combat log<small>Segment-by-segment mental exchanges · also sent to Party Chat</small></span><b>{tracker.psionicExchanges?.length ?? 0}</b></summary><div>{hasProgressionAuthority && (tracker.psionicExchanges?.length ?? 0) > 0 && <div className="psionic-log-toolbar"><span>🧠 Stored combat record</span><button type="button" className="text-button danger-link" onClick={() => updateTracker({ psionicExchanges: [] }, true)}>Clear psionic log</button></div>}{(tracker.psionicExchanges?.length ?? 0) === 0 ? <p className="compact-empty">No psionic exchange has resolved yet.</p> : [...(tracker.psionicExchanges ?? [])].slice(-30).reverse().map((entry) => { const attacker = tracker.participants.find((participant) => participant.id === entry.attackerId); const defender = tracker.participants.find((participant) => participant.id === entry.defenderId); const hostile = attacker?.side === "opposition"; const rollText = psionicLogRollText(entry); return <article className={hostile ? "opposition-attack" : "party-attack"} key={entry.id}>
+            <header><span>Round {entry.round} · Segment {entry.segment}</span><b>{hostile ? "🟣 Enemy psion" : "🔵 Party psion"}</b></header>
+            <div className="psionic-log-matchup"><strong>🧠 {attacker?.name ?? "Unknown attacker"}</strong><span>→</span><strong>{defender?.name ?? "Unknown target"}</strong></div>
+            <div className="psionic-log-modes"><span><small>⚡ Attack</small><PsionicAttackModeTooltip mode={entry.attackMode}>{entry.attackMode}</PsionicAttackModeTooltip></span><span><small>🛡️ Defense</small>{entry.defenseMode && entry.defenseMode !== "Defenseless" ? <PsionicDefenseModeTooltip mode={entry.defenseMode}>{entry.defenseMode}</PsionicDefenseModeTooltip> : <b>{entry.defenseMode ?? "Non-psionic save"}</b>}</span><span><small>📏 Range / matrix</small><b>{entry.range} · {entry.matrixBand ?? "legacy entry"}</b></span></div>
+            <div className="psionic-log-accounting"><span><small>🧠 Attacker AP</small><b>{entry.attackerAttackBefore ?? "—"} → {entry.attackerAttackAfter ?? "—"}</b><em>{entry.attackCost ? `−${entry.attackCost} cost` : "cost paid once for area"}</em></span>{entry.defenderDefenseBefore !== undefined && <span><small>🛡️ Defender DP</small><b>{entry.defenderDefenseBefore} → {entry.defenderDefenseAfter ?? "—"}</b><em>{entry.defenseCost ? `−${entry.defenseCost} defense` : ""}{entry.loss ? `${entry.defenseCost ? " · " : ""}−${entry.loss} loss` : ""}</em></span>}{entry.defenderAttackBefore !== undefined && <span><small>🧠 Defender AP</small><b>{entry.defenderAttackBefore} → {entry.defenderAttackAfter ?? "—"}</b><em>{entry.hpLoss ? `${entry.hpLoss} excess HP damage` : ""}</em></span>}</div>
             <footer><strong>{entry.result ?? "No result"}</strong><span>{rollText}</span></footer>
           </article>; })}</div></details>}
       </section>

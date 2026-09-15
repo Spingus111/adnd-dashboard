@@ -57,7 +57,20 @@ export function RulesPopoverButton({ className, label, children, panel }: { clas
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   const popover = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<number | null>(null);
   const style = usePopoverPosition(open, anchor);
+  const cancelClose = () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  };
+  const show = () => {
+    cancelClose();
+    setOpen(true);
+  };
+  const hideSoon = () => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => setOpen(false), 180);
+  };
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
@@ -67,9 +80,12 @@ export function RulesPopoverButton({ className, label, children, panel }: { clas
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
+  useEffect(() => () => {
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+  }, []);
   return <>
-    <button ref={anchor} type="button" className={className} aria-label={label} aria-expanded={open} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={(event) => { if (!popover.current?.contains(event.relatedTarget as Node)) setOpen(false); }} onClick={(event) => { event.stopPropagation(); setOpen((current) => !current); }}>{children}</button>
-    {open && typeof document !== "undefined" && createPortal(<div ref={popover} className="weapon-rules-popover" role="dialog" aria-label={label} style={style} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>{panel}</div>, document.body)}
+    <button ref={anchor} type="button" className={className} aria-label={label} aria-expanded={open} onMouseEnter={show} onMouseLeave={hideSoon} onFocus={show} onBlur={(event) => { if (!popover.current?.contains(event.relatedTarget as Node)) hideSoon(); }} onClick={(event) => { event.stopPropagation(); cancelClose(); setOpen((current) => !current); }}>{children}</button>
+    {open && typeof document !== "undefined" && createPortal(<div ref={popover} className="weapon-rules-popover" role="dialog" aria-label={label} style={style} onMouseEnter={show} onMouseLeave={hideSoon}>{panel}</div>, document.body)}
   </>;
 }
 

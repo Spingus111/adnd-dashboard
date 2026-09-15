@@ -35,7 +35,7 @@ type ChatMessage = {
   visibility?: Visibility | null;
   recipientClientId?: string | null;
   recipientName?: string | null;
-  tone?: "hostile" | null;
+  tone?: "hostile" | "psionic" | "psionic-hostile" | null;
   createdAt: string;
 };
 
@@ -250,9 +250,10 @@ export default function ChatDrawer({ campaign, setCampaign, combatTabActive }: P
     });
   }
 
-  async function postMessage(content: string, rollDetail: string | null = null, options?: { visibility?: Visibility; recipientClientId?: string; recipientName?: string; tone?: "hostile"; actor?: Character }) {
+  async function postMessage(content: string, rollDetail: string | null = null, options?: { visibility?: Visibility; recipientClientId?: string; recipientName?: string; tone?: "hostile" | "psionic" | "psionic-hostile"; actor?: Character; emoji?: string; color?: string }) {
     const cleaned = content.trim();
     if (!cleaned || !clientId) return;
+    const actorPresentation = { emoji: options?.actor?.emoji ?? identity.emoji, color: options?.actor?.tileColor ?? identity.color };
     // Successful sends should not insert a temporary status row below the chat.
     // That row changed the scrollable pane height and made the bottom jump.
     setStatus("");
@@ -261,7 +262,7 @@ export default function ChatDrawer({ campaign, setCampaign, combatTabActive }: P
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          authorName: identity.name, authorClientId: clientId, authorIsGm: hasGmPermissions, emoji: options?.actor?.emoji ?? identity.emoji, color: options?.actor?.tileColor ?? identity.color,
+          authorName: identity.name, authorClientId: clientId, authorIsGm: hasGmPermissions, emoji: options?.emoji ?? actorPresentation.emoji, color: options?.color ?? actorPresentation.color,
           content: cleaned, rollDetail, visibility: options?.visibility ?? "public", recipientClientId: options?.recipientClientId ?? null, recipientName: options?.recipientName ?? null, tone: options?.tone ?? null,
         }),
       });
@@ -411,7 +412,7 @@ export default function ChatDrawer({ campaign, setCampaign, combatTabActive }: P
 
   function handleChatAction(detail: ChatActionDetail) {
     if (detail.kind !== "combat-result" && detail.kind !== "external-roll") setOpen(true);
-    if (detail.kind === "combat-result") return void postMessage(detail.content, detail.rollDetail ?? null, { visibility: hiddenRoll ? "private" : "public", tone: detail.tone });
+    if (detail.kind === "combat-result") return void postMessage(detail.content, detail.rollDetail ?? null, { visibility: hiddenRoll ? "private" : "public", tone: detail.tone, emoji: detail.emoji, color: detail.color });
     if (detail.kind === "external-roll") {
       pulseRoll();
       const roll = rollDie(20);
@@ -631,7 +632,7 @@ export default function ChatDrawer({ campaign, setCampaign, combatTabActive }: P
         })}</section>}
 
         <div className="chat-messages-shell">
-          <div className="chat-messages" ref={messagesRef} onScroll={trackChatScroll} aria-live="polite">{messages.length === 0 ? <div className="chat-empty">No visible messages yet. Roll something or say hello.</div> : messages.map((message, messageIndex) => <article className={`chat-message ${message.tone === "hostile" ? "hostile" : ""} ${messageIndex < messages.length - 3 ? "older-message" : ""} ${freshMessageId === message.id ? "fresh" : ""}`} style={characterTileStyle(message.color)} key={message.id}><span className="chat-message-emoji">{message.emoji}</span><div><header><strong>{message.authorName}</strong><span>{message.visibility === "private" ? "🔒 Hidden roll" : message.visibility === "whisper" ? `🤫 To ${message.recipientName || "player"}` : ""}</span><time>{new Date(message.createdAt.endsWith("Z") ? message.createdAt : `${message.createdAt}Z`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></header><div className="chat-message-content">{message.content.split("\n").map((line, index) => <span className={`${line.startsWith("✅") ? "roll-line success" : line.startsWith("❌") ? "roll-line failure" : line.startsWith("🎯") ? "roll-line headshot" : line.startsWith("🎲") ? "roll-line heading" : "roll-line"}${line.startsWith("RESULT —") || line.startsWith("TOTAL —") || line.startsWith("Total:") ? " total" : ""}`} key={`${message.id}-${index}`}>{renderRollMarkup(line)}</span>)}</div></div></article>)}</div>
+          <div className="chat-messages" ref={messagesRef} onScroll={trackChatScroll} aria-live="polite">{messages.length === 0 ? <div className="chat-empty">No visible messages yet. Roll something or say hello.</div> : messages.map((message, messageIndex) => { const toneClass = message.tone === "psionic-hostile" ? "hostile psionic psionic-hostile" : message.tone === "psionic" ? "psionic" : message.tone === "hostile" ? "hostile" : ""; return <article className={`chat-message ${toneClass} ${messageIndex < messages.length - 3 ? "older-message" : ""} ${freshMessageId === message.id ? "fresh" : ""}`} style={characterTileStyle(message.color)} key={message.id}><span className="chat-message-emoji">{message.emoji}</span><div><header><strong>{message.authorName}</strong><span>{message.visibility === "private" ? "🔒 Hidden roll" : message.visibility === "whisper" ? `🤫 To ${message.recipientName || "player"}` : ""}</span><time>{new Date(message.createdAt.endsWith("Z") ? message.createdAt : `${message.createdAt}Z`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></header><div className="chat-message-content">{message.content.split("\n").map((line, index) => <span className={`${line.startsWith("✅") ? "roll-line success" : line.startsWith("❌") ? "roll-line failure" : line.startsWith("🎯") ? "roll-line headshot" : line.startsWith("🎲") ? "roll-line heading" : "roll-line"}${line.startsWith("RESULT —") || line.startsWith("TOTAL —") || line.startsWith("Total:") ? " total" : ""}`} key={`${message.id}-${index}`}>{renderRollMarkup(line)}</span>)}</div></div></article>; })}</div>
           {!role && preferencesReady && <section className="chat-role-onboarding" aria-label="Choose party chat identity"><strong>I am a…</strong>{!choosingPartyCharacters ? <div><button type="button" onClick={() => setChoosingPartyCharacters(true)}>Party Member</button><button type="button" onClick={() => setRole("gm")}>GM</button><button type="button" onClick={() => setRole("solo")}>Solo</button></div> : <><span>Choose your character(s).</span><div className="chat-onboarding-characters">{activeCharacters.length === 0 ? <em>No characters are available.</em> : activeCharacters.map((character) => <label style={characterTileStyle(character.tileColor)} key={character.id}><input type="checkbox" checked={dockedIds.includes(character.id)} onChange={() => toggleDock(character.id)} /><span>{character.emoji}</span><b>{character.name}</b></label>)}</div><footer><button type="button" onClick={() => setChoosingPartyCharacters(false)}>Back</button><button className="primary-button" type="button" disabled={activeCharacters.length > 0 && dockedIds.length === 0} onClick={() => { setRole("party-member"); setChoosingPartyCharacters(false); }}>Use this identity</button></footer></>}</section>}
           {raisedHands.length > 0 && <div className="raised-hands-overlay" aria-label="Raised hands">{raisedHands.map((hand) => <button style={characterTileStyle(hand.color)} aria-disabled={!hasGmPermissions && hand.clientId !== clientId} title={hand.playerName} aria-label={`${hand.playerName} has raised a hand${hasGmPermissions || hand.clientId === clientId ? "; click to dismiss" : ""}`} onClick={() => { if (hasGmPermissions || hand.clientId === clientId) void setHand(false, hand.clientId); }} key={hand.clientId}>✋</button>)}</div>}
         </div>

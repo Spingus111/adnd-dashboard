@@ -65,6 +65,15 @@
   --enemy-bubble-bg: #c8524d;
   --enemy-bubble-fg: #1c0d0d;
 
+  /* Psionic combat is distinct from ordinary hostile attacks. */
+  --psionic: #4a3e86;
+  --psionic-bg: #e8e2f2;
+  --psionic-enemy: #5b267f;
+  --psionic-enemy-bg: #dfd0eb;
+  --headshot: #5a3210;
+  --headshot-border: #c87522;
+  --headshot-bg: #f2dfb3;
+
   /* Death/defeat is distinct from enemy, disabled, and danger. */
   --dead-bg: #292725;
   --dead-surface: #dad5cc;
@@ -154,6 +163,14 @@ html[data-theme="dark"] {
   --enemy-ink: #ffd1c7;
   --enemy-bubble-bg: #e8736d;
   --enemy-bubble-fg: #160909;
+
+  --psionic: #c6b5f0;
+  --psionic-bg: #2d2641;
+  --psionic-enemy: #e1bdff;
+  --psionic-enemy-bg: #3b204d;
+  --headshot: #ffe0a7;
+  --headshot-border: #f0a34a;
+  --headshot-bg: #503317;
 
   --dead-bg: #0f0f0e;
   --dead-surface: #292724;
@@ -859,6 +876,25 @@ html[data-theme="dark"] :is(.glance-card, .pool-character, .march-character, .mi
   background: transparent !important;
   color: var(--enemy-bubble-fg) !important;
 }
+.chat-message.psionic > div,
+.chat-message.psionic > .chat-message-emoji {
+  border-color: var(--psionic) !important;
+  background: var(--psionic-bg) !important;
+  color: var(--psionic) !important;
+}
+.chat-message.psionic :is(header strong, header time, .roll-line, .roll-line.heading, .roll-line.success, .roll-line.failure) {
+  background: transparent !important;
+  color: var(--psionic) !important;
+}
+.chat-message.psionic-hostile > div,
+.chat-message.psionic-hostile > .chat-message-emoji {
+  border-color: var(--psionic-enemy) !important;
+  background: var(--psionic-enemy-bg) !important;
+  color: var(--psionic-enemy) !important;
+}
+.chat-message.psionic-hostile :is(header strong, header time, .roll-line, .roll-line.heading, .roll-line.success, .roll-line.failure) {
+  color: var(--psionic-enemy) !important;
+}
 .chat-launcher {
   border-color: var(--gold-active) !important;
   background: var(--gold) !important;
@@ -1109,8 +1145,12 @@ details[open] > summary::after { content: "Collapse"; }
   color: var(--text-primary);
   max-height: min(480px, calc(100vh - 16px));
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 12px;
+  pointer-events: auto;
   position: fixed;
+  scrollbar-width: thin;
+  user-select: text;
   z-index: 1200;
 }
 

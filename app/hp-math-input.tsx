@@ -8,14 +8,16 @@ type Props = {
   onCommit: (value: number) => void;
   ariaLabel: string;
   minimum?: number;
+  maximum?: number;
   className?: string;
+  title?: string;
 };
 
 function displayValue(value: number) {
   return value === 0 ? "" : String(value);
 }
 
-export default function HpMathInput({ value, onCommit, ariaLabel, minimum = Number.NEGATIVE_INFINITY, className }: Props) {
+export default function HpMathInput({ value, onCommit, ariaLabel, minimum = Number.NEGATIVE_INFINITY, maximum = Number.POSITIVE_INFINITY, className, title }: Props) {
   const [draft, setDraft] = useState(displayValue(value));
   const startingValue = useRef(value);
   const editing = useRef(false);
@@ -32,7 +34,7 @@ export default function HpMathInput({ value, onCommit, ariaLabel, minimum = Numb
       setDraft(displayValue(value));
       return;
     }
-    const next = Math.max(minimum, Math.trunc(evaluateHpEntry(draft, startingValue.current)));
+    const next = Math.min(maximum, Math.max(minimum, Math.trunc(evaluateHpEntry(draft, startingValue.current))));
     editing.current = false;
     setDraft(displayValue(next));
     onCommit(next);
@@ -44,7 +46,7 @@ export default function HpMathInput({ value, onCommit, ariaLabel, minimum = Numb
     inputMode="numeric"
     value={draft}
     placeholder="0"
-    title="Enter a number to set HP, +number to heal, or -number to deal damage. Blank equals 0."
+    title={title ?? "Enter a number to set HP, +number to heal, or -number to deal damage. Blank equals 0."}
     onFocus={(event) => {
       editing.current = true;
       startingValue.current = value;
